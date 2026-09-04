@@ -6,7 +6,7 @@ import {
   FaArrowLeft, FaCalendarAlt, FaBuilding, FaGraduationCap, FaClock,
   FaFilePdf, FaExternalLinkAlt, FaRegClock, FaBriefcase, FaShareAlt, FaCheckCircle,
   FaUsers, FaRupeeSign, FaMoneyBillWave, FaListUl, FaMapMarkerAlt, FaUserCheck,
-  FaWhatsapp, FaEye,
+  FaWhatsapp,
 } from "react-icons/fa";
 import { toast } from "sonner";
 import ShareModal from "@/components/poster/ShareModal";
@@ -418,22 +418,35 @@ const VacancyDetail = () => {
           <div className="section-eyebrow mb-3">{lang === "hi" ? "महत्वपूर्ण लिंक" : "Important Links"}</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {v.important_links.map((l, i) => {
+              const href = l.href || l.url;
+              const text = l.text || l.label || href;
+              const isPdf = l.type === "pdf" || (href || "").toLowerCase().split("?")[0].endsWith(".pdf");
               const meta = KIND_META[l.kind] || KIND_META.official;
-              const Icon = meta.icon;
+              const Icon = isPdf ? FaFilePdf : meta.icon;
+              const eyebrow = l.kind ? (lang === "hi" ? meta.hi : meta.en) : (isPdf ? "PDF" : (lang === "hi" ? "लिंक" : "Link"));
               return (
-                <a key={i} href={l.href} target="_blank" rel="noreferrer nofollow"
-                  className={`p-3 rounded-lg border flex items-center gap-3 transition hover:scale-[1.01] ${meta.cls}`}
-                  data-testid={`imp-link-${l.kind}-${i}`}>
-                  <Icon className={`text-lg shrink-0 ${meta.iconCls}`} />
+                <a key={i} href={href} target="_blank" rel="noreferrer nofollow"
+                  className={`p-3 rounded-lg border flex items-center gap-3 transition hover:scale-[1.01] ${isPdf ? "bg-red-500/10 border-red-500/30 hover:bg-red-500/15" : meta.cls}`}
+                  data-testid={`imp-link-${l.kind || l.type || "link"}-${i}`}>
+                  <Icon className={`text-lg shrink-0 ${isPdf ? "text-red-400" : meta.iconCls}`} />
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs uppercase tracking-wide text-slate-400">{lang === "hi" ? meta.hi : meta.en}</div>
-                    <div className="text-sm text-white truncate">{l.text}</div>
+                    <div className="text-xs uppercase tracking-wide text-slate-400">{eyebrow}</div>
+                    <div className="text-sm text-white truncate">{text}</div>
                   </div>
                   <FaExternalLinkAlt className="text-xs text-slate-500 shrink-0" />
                 </a>
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Tags */}
+      {Array.isArray(v.tags) && v.tags.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-6" data-testid="vacancy-tags">
+          {v.tags.map((t, i) => (
+            <span key={i} className="text-xs font-medium px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-slate-300">#{t}</span>
+          ))}
         </div>
       )}
 
@@ -455,7 +468,6 @@ const VacancyDetail = () => {
 
       {/* Meta footer */}
       <div className="text-xs text-slate-500 text-center flex items-center justify-center gap-4 flex-wrap">
-        <span data-testid="vacancy-views"><FaEye className="inline mr-1" /> {(v.views || 0).toLocaleString(lang === "hi" ? "hi-IN" : "en-IN")} {lang === "hi" ? "व्यूज़" : "views"}</span>
         {v.fetched_at && (
           <span><FaClock className="inline mr-1" /> {lang === "hi" ? "अंतिम अपडेट" : "Last updated"}: {new Date(v.fetched_at).toLocaleString()}</span>
         )}

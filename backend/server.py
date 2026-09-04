@@ -971,6 +971,8 @@ class ManualVacancyIn(BaseModel):
     seo_title: Optional[str] = Field(None, max_length=200)
     focus_keyword: Optional[str] = Field(None, max_length=120)
     seo_description: Optional[str] = Field(None, max_length=400)
+    tags: Optional[List[str]] = None
+    important_links: Optional[List[dict]] = None   # [{label, url, type}] — URLs and/or uploaded PDFs
 
 
 def _manual_doc(payload: ManualVacancyIn, existing_url: Optional[str] = None) -> dict:
@@ -1008,6 +1010,16 @@ def _manual_doc(payload: ManualVacancyIn, existing_url: Optional[str] = None) ->
         "seo_title": (payload.seo_title or "").strip()[:200] or None,
         "focus_keyword": (payload.focus_keyword or "").strip()[:120] or None,
         "seo_description": (payload.seo_description or "").strip()[:400] or None,
+        "tags": [t.strip()[:60] for t in (payload.tags or []) if t and t.strip()][:20],
+        "important_links": [
+            {
+                "label": (l.get("label") or "").strip()[:120] or "Link",
+                "url": (l.get("url") or "").strip()[:600],
+                "type": (l.get("type") or "link").strip()[:20],
+            }
+            for l in (payload.important_links or [])
+            if (l.get("url") or "").strip()
+        ][:30],
     }
     return doc
 
@@ -1596,6 +1608,37 @@ async def _save_public_file(file: UploadFile, allowed_mime: set):
         "created_at": datetime.now(timezone.utc),
     })
     return f"/api/uploads/{fname}", len(body)
+
+
+ADMIN_UPLOAD_MIME = {"application/pdf", "image/jpeg", "image/png", "image/webp"}
+
+
+@api.post("/admin/uploads")
+async def admin_upload(file: UploadFile = File(...), _=Depends(require_admin)):
+    """Generic admin file upload (PDF / image) used by Manual Job Posts important-links."""
+    url, size = await _save_public_file(file, ADMIN_UPLOAD_MIME)
+    return {"url": url, "name": file.filename, "size": size, "mime": file.content_type}
+
+
+@api.get("/admin/overview")
+async def admin_overview(_=Depends(require_admin)):
+    async def _views(coll):
+        cur = db[coll].aggregate([{"$group": {"_id": None, "v": {"$sum": {"$ifNull": ["$views", 0]}}}}])
+        rows = await cur.to_list(1)
+        return int(rows[0]["v"]) if rows else 0
+    vac_views = await _views("vacancies")
+    blog_views = await _views("blogs")
+    return {
+        "total_vacancies": await db.vacancies.count_documents({}),
+        "manual_vacancies": await db.vacancies.count_documents({"source": "manual"}),
+        "total_blogs": await db.blogs.count_documents({}),
+        "published_blogs": await db.blogs.count_documents({"status": "published"}),
+        "total_reviews": await db.reviews.count_documents({}),
+        "total_views": vac_views + blog_views,
+        "vacancy_views": vac_views,
+        "blog_views": blog_views,
+        "contacts": await db.contacts.count_documents({}),
+    }
 
 
 @api.get("/resume-templates")

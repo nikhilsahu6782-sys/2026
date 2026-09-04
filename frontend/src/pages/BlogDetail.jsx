@@ -5,7 +5,7 @@ import SEO from "@/components/SEO";
 import RawHead from "@/components/RawHead";
 import Reviews from "@/components/Reviews";
 import { useI18n } from "@/context/I18nContext";
-import { FaWhatsapp, FaCalendarAlt, FaUser, FaNewspaper, FaEye } from "react-icons/fa";
+import { FaWhatsapp, FaCalendarAlt, FaUser, FaNewspaper } from "react-icons/fa";
 import { WHATSAPP_CHANNEL_URL } from "@/lib/whatsapp";
 
 import { BACKEND_URL as BACKEND } from "@/lib/api";
@@ -61,9 +61,6 @@ const BlogDetail = () => {
         <span className="flex items-center gap-1.5">
           <FaCalendarAlt />
           {new Date(blog.created_at).toLocaleDateString(hi ? "hi-IN" : "en-IN", { day: "numeric", month: "long", year: "numeric" })}
-        </span>
-        <span className="flex items-center gap-1.5" data-testid="blog-views">
-          <FaEye /> {(blog.views || 0).toLocaleString(hi ? "hi-IN" : "en-IN")} {hi ? "व्यूज़" : "views"}
         </span>
       </div>
 

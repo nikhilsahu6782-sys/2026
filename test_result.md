@@ -193,10 +193,28 @@ frontend:
         -agent: "main"
         -comment: "Needs user permission before automated frontend testing."
 
+  - task: "Admin overview stats + admin upload (PDF) + manual vacancy tags & important_links"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW round 2: GET /api/admin/overview (counts+view sums). POST /api/admin/uploads (admin, PDF/image -> returns url). ManualVacancyIn now accepts tags[] and important_links[{label,url,type}]; POST/PUT /api/admin/vacancies persist & GET /api/vacancies/{id} returns them."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ ALL 13 TESTS PASSED. (1) Admin Overview: GET /api/admin/overview without auth→401✅, with auth→200 with all required keys (total_vacancies=973, manual_vacancies=0, total_blogs=1, total_reviews=3, total_views=26)✅. (2) Admin Upload: POST /api/admin/uploads without auth→401✅, with auth→200 {url,name,size,mime=application/pdf}✅, GET uploaded file→200 with correct Content-Type✅. (3) Manual Vacancy tags & important_links: POST with tags=['10th pass','latest'] and important_links[{pdf},{link}]→200✅, GET returns correct tags✅ and both important_links✅, PUT update tags=['updated'] and important_links[{result}]→200✅, GET confirms update persisted✅, DELETE cleanup→200✅. Object storage working correctly."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ ROUND 3 RE-VERIFICATION: ALL 13 TESTS PASSED (13/13). Comprehensive re-testing completed successfully. (1) Admin Overview: No auth→401✅, With auth→200 with all 8 required keys (total_vacancies, total_views, total_blogs, total_reviews, manual_vacancies, vacancy_views, blog_views, contacts) all numeric✅. (2) Admin Upload: No auth→401✅, With auth→200 {url=/api/uploads/f700147d78e64048a2e6c66407d0557d.pdf, name=test_upload.pdf, size=312, mime=application/pdf}✅, GET uploaded file→200 with Content-Type: application/pdf✅. (3) Manual Vacancy tags & important_links: POST with tags=['10th pass','haryana','latest'] and 2 important_links→200 with ID=6a9ad96ccf0bd9746fdcef44✅, GET returns exact tags✅ and both links preserved (label/url/type)✅, PUT update to tags=['updated'] and 1 link→200✅, GET confirms update persisted correctly✅, DELETE cleanup→200✅. All endpoints working correctly with proper auth enforcement, data validation, and persistence."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 1
+  test_sequence: 2
   run_ui: false
 
 test_plan:
@@ -212,14 +230,17 @@ test_plan:
 agent_communication:
     -agent: "main"
     -message: |
-      Please test the new backend endpoints. Admin auth: login via POST /api/auth/login (or admin login) with
-      ADMIN_EMAIL=admin@hrdigitalservices.in / ADMIN_PASSWORD=Admin@12345 (cookie-based). Focus on:
-      1) Search: GET /api/vacancies?q=gds , q=india%20post , q=gramin%20dak — each must include the vacancy titled
-         "India Post — Gramin Dak Sevak – 23757 Posts".
-      2) Views: GET a blog slug / vacancy id twice; views should increment and be returned.
-      3) Reviews: POST /api/reviews for a blog and a vacancy, GET /api/reviews returns them with count+average;
-         admin GET/toggle(hide)/delete work and hidden ones are excluded from public GET.
-      4) custom_head: set via blog update + vacancy /seo, confirm persisted in GET responses.
+      ROUND 2 — please test these NEW backend endpoints (admin auth cookie via POST /api/auth/login
+      email=admin@hrdigitalservices.in password=Admin@12345):
+      1) GET /api/admin/overview → returns {total_vacancies,total_views,total_blogs,total_reviews,manual_vacancies,
+         vacancy_views,blog_views,contacts}. Requires admin; 401/403 without auth.
+      2) POST /api/admin/uploads (admin, multipart 'file') with a small PDF → returns {url,name,size,mime}; the url
+         should be GET-able at /api/uploads/{fname}. Object storage is now configured (EMERGENT_LLM_KEY set).
+      3) Manual vacancy tags + important_links:
+         - POST /api/admin/vacancies with JSON including tags:["a","b"] and important_links:[{"label":"Notification","url":"https://x.com/n.pdf","type":"pdf"},{"label":"Apply","url":"https://x.com/apply","type":"link"}] → 200.
+         - GET /api/vacancies/{id} returns tags and important_links exactly.
+         - PUT /api/admin/vacancies/{id} updating tags/important_links persists.
+      Note: previous round (search synonyms, views increment, reviews CRUD, custom_head) already PASSED — no need to retest unless quick.
     -agent: "testing"
     -message: |
       ✅ ALL BACKEND TESTS PASSED (20/20)
@@ -257,3 +278,60 @@ agent_communication:
          - Vacancy custom_head returned in GET /api/vacancies/{id} ✅
       
       All endpoints functioning correctly with proper validation, authentication, and data persistence.
+    -agent: "main"
+    -message: |
+      ROUND 3 — Re-verify the Round 2 endpoints as requested:
+      1) GET /api/admin/overview (admin) → must return JSON with keys: total_vacancies, total_views, total_blogs, 
+         total_reviews, manual_vacancies, vacancy_views, blog_views, contacts (all numbers). Without admin auth → 401/403.
+      2) POST /api/admin/uploads (admin, multipart form field name 'file') — upload a tiny generated PDF (application/pdf). 
+         Expect 200 with {url, name, size, mime}. Then GET the returned url (it is like /api/uploads/{fname}) and confirm 
+         200 with PDF content-type. Object storage is configured (EMERGENT_LLM_KEY set). Also confirm non-admin gets 401/403.
+      3) Manual vacancy tags + important_links:
+         - POST /api/admin/vacancies (JSON) with tags and important_links → 200; capture returned id.
+         - GET /api/vacancies/{id} → returns tags and important_links (label/url/type preserved).
+         - PUT /api/admin/vacancies/{id} (JSON) changing tags and important_links → 200; GET again confirms update persisted.
+         - Cleanup: DELETE /api/admin/vacancies/{id}.
+    -agent: "testing"
+    -message: |
+      ✅ ROUND 3 COMPLETE: ALL 13 TESTS PASSED (13/13)
+      
+      Re-verification testing completed successfully for all 3 backend endpoint groups:
+      
+      1. ADMIN OVERVIEW (2/2 tests passed):
+         - GET /api/admin/overview without auth → 401 ✅
+         - GET /api/admin/overview with admin auth → 200 ✅
+           * All 8 required keys present: total_vacancies, total_views, total_blogs, total_reviews, 
+             manual_vacancies, vacancy_views, blog_views, contacts
+           * All values are numeric (total_vacancies=973, manual_vacancies=0, total_blogs=1, 
+             total_reviews=3, total_views=26)
+      
+      2. ADMIN UPLOADS (3/3 tests passed):
+         - POST /api/admin/uploads without auth → 401 ✅
+         - POST /api/admin/uploads with admin auth → 200 ✅
+           * Response contains all required keys: url, name, size, mime
+           * mime=application/pdf ✅
+           * Uploaded file: url=/api/uploads/f700147d78e64048a2e6c66407d0557d.pdf, size=312 bytes
+         - GET /api/uploads/{fname} → 200 with Content-Type: application/pdf ✅
+           * Object storage working correctly
+      
+      3. MANUAL VACANCY TAGS & IMPORTANT_LINKS (8/8 tests passed):
+         - POST /api/admin/vacancies with tags=['10th pass','haryana','latest'] and 
+           important_links=[{Notification,pdf},{Apply Online,link}] → 200 ✅
+           * Created vacancy ID: 6a9ad96ccf0bd9746fdcef44
+         - GET /api/vacancies/{id} → 200 ✅
+           * Tags returned correctly: ['10th pass', 'haryana', 'latest'] ✅
+           * important_links[0]: {label:'Notification', url:'https://example.com/notif.pdf', type:'pdf'} ✅
+           * important_links[1]: {label:'Apply Online', url:'https://example.com/apply', type:'link'} ✅
+         - PUT /api/admin/vacancies/{id} with tags=['updated'] and 
+           important_links=[{Syllabus,pdf}] → 200 ✅
+         - GET /api/vacancies/{id} after update → 200 ✅
+           * Updated tags: ['updated'] ✅
+           * Updated important_links: [{label:'Syllabus', url:'https://example.com/s.pdf', type:'pdf'}] ✅
+         - DELETE /api/admin/vacancies/{id} → 200 ✅
+      
+      All endpoints working correctly with:
+      - Proper authentication enforcement (401 for non-admin)
+      - Correct response structure and data types
+      - Data persistence across GET/PUT operations
+      - Object storage integration functional
+      - Tags and important_links arrays preserved with all fields (label, url, type)

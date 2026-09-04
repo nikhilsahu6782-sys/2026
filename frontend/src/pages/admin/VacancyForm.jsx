@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { FaSave, FaTimes } from "react-icons/fa";
+import { FaSave, FaTimes, FaPlus, FaTrash, FaFilePdf, FaLink, FaUpload } from "react-icons/fa";
 import { adminApi } from "./adminAuth";
 import { computeSeoScore } from "@/lib/utils-seo";
 import { buildWhatsAppSummary } from "@/lib/whatsapp";
@@ -35,6 +35,7 @@ const EMPTY = {
   category: "other", application_mode: "", state: "",
   last_date_text: "", apply_url: "", description: "",
   total_posts: "", seo_title: "", focus_keyword: "", seo_description: "",
+  tags: [], important_links: [],
 };
 
 /**
@@ -44,6 +45,7 @@ const EMPTY = {
 const VacancyForm = ({ initial, onClose, onSaved }) => {
   const [f, setF] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
+  const [uploadingIdx, setUploadingIdx] = useState(null);
 
   useEffect(() => {
     if (initial) {
@@ -62,6 +64,8 @@ const VacancyForm = ({ initial, onClose, onSaved }) => {
         seo_title: initial.seo_title || "",
         focus_keyword: initial.focus_keyword || "",
         seo_description: initial.seo_description || "",
+        tags: initial.tags || [],
+        important_links: initial.important_links || [],
       });
     } else {
       setF(EMPTY);
@@ -69,6 +73,35 @@ const VacancyForm = ({ initial, onClose, onSaved }) => {
   }, [initial]);
 
   const upd = (k, v) => setF((prev) => ({ ...prev, [k]: v }));
+
+  // Important-links (label + url, or uploaded PDF) helpers
+  const addLink = () => setF((p) => ({ ...p, important_links: [...(p.important_links || []), { label: "", url: "", type: "link" }] }));
+  const updLink = (i, k, v) => setF((p) => {
+    const arr = [...(p.important_links || [])];
+    arr[i] = { ...arr[i], [k]: v };
+    return { ...p, important_links: arr };
+  });
+  const removeLink = (i) => setF((p) => ({ ...p, important_links: (p.important_links || []).filter((_, idx) => idx !== i) }));
+  const uploadPdf = async (i, file) => {
+    if (!file) return;
+    setUploadingIdx(i);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const { data } = await adminApi.post("/admin/uploads", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      setF((p) => {
+        const arr = [...(p.important_links || [])];
+        const cur = arr[i] || { label: "", url: "", type: "link" };
+        arr[i] = { ...cur, url: data.url, type: "pdf", label: cur.label || (file.name || "PDF").replace(/\.[^.]+$/, "") };
+        return { ...p, important_links: arr };
+      });
+      toast.success("PDF uploaded");
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Upload failed");
+    } finally {
+      setUploadingIdx(null);
+    }
+  };
 
   const seo = computeSeoScore(f);
   const waPreview = buildWhatsAppSummary({
@@ -209,6 +242,72 @@ const VacancyForm = ({ initial, onClose, onSaved }) => {
             <input type="url" value={f.apply_url} onChange={(e) => upd("apply_url", e.target.value)}
               className={inputCls} placeholder="https://example.com/apply" data-testid="vacancy-form-apply_url" />
           </Field>
+
+          {/* Tags */}
+          <Field label="Tags (comma separated)">
+            <input
+              value={(f.tags || []).join(", ")}
+              onChange={(e) => upd("tags", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))}
+              className={inputCls}
+              placeholder="e.g. 10th pass, haryana, latest"
+              data-testid="vacancy-form-tags"
+            />
+            {(f.tags || []).length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {(f.tags || []).map((t, i) => (
+                  <span key={i} className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{t}</span>
+                ))}
+              </div>
+            )}
+          </Field>
+
+          {/* Important Links (URL columns + multi PDF upload) */}
+          <div className="rounded-xl border-2 border-slate-200 bg-slate-50 p-4 space-y-3" data-testid="vacancy-form-links-card">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Important Links / PDF Attachments</span>
+              <button type="button" onClick={addLink}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold"
+                data-testid="vacancy-form-add-link">
+                <FaPlus className="text-[10px]" /> Add Column
+              </button>
+            </div>
+            {(f.important_links || []).length === 0 && (
+              <p className="text-xs text-slate-400">Add rows for Notification PDF, Apply Link, Syllabus, Admit Card etc. Each row can hold a URL or an uploaded PDF.</p>
+            )}
+            {(f.important_links || []).map((lnk, i) => (
+              <div key={i} className="grid grid-cols-1 md:grid-cols-[1fr_1.4fr_auto] gap-2 items-center bg-white rounded-lg border border-slate-200 p-2" data-testid={`vacancy-form-link-row-${i}`}>
+                <input
+                  value={lnk.label || ""}
+                  onChange={(e) => updLink(i, "label", e.target.value)}
+                  className="px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 outline-none text-sm text-slate-900"
+                  placeholder="Label (e.g. Notification PDF)"
+                  data-testid={`vacancy-form-link-label-${i}`}
+                />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 text-xs">{lnk.type === "pdf" ? <FaFilePdf className="text-red-500" /> : <FaLink />}</span>
+                  <input
+                    value={lnk.url || ""}
+                    onChange={(e) => updLink(i, "url", e.target.value)}
+                    className="flex-1 px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 outline-none text-sm text-slate-900"
+                    placeholder="https://…  or upload PDF →"
+                    data-testid={`vacancy-form-link-url-${i}`}
+                  />
+                  <label className="shrink-0 cursor-pointer inline-flex items-center gap-1 px-2.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold" title="Upload PDF">
+                    <FaUpload className="text-[10px]" /> {uploadingIdx === i ? "…" : "PDF"}
+                    <input type="file" accept="application/pdf" className="hidden"
+                      onChange={(e) => { uploadPdf(i, e.target.files?.[0]); e.target.value = ""; }}
+                      data-testid={`vacancy-form-link-pdf-${i}`} />
+                  </label>
+                </div>
+                <button type="button" onClick={() => removeLink(i)}
+                  className="p-2 rounded-lg text-red-500 hover:bg-red-50 justify-self-end" title="Remove"
+                  data-testid={`vacancy-form-link-remove-${i}`}>
+                  <FaTrash className="text-xs" />
+                </button>
+              </div>
+            ))}
+          </div>
+
           <Field label="Description / Notes (plain text or simple HTML)">
             <textarea value={f.description} onChange={(e) => upd("description", e.target.value)}
               rows={8} className={inputCls} data-testid="vacancy-form-description" />
