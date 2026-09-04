@@ -752,18 +752,206 @@ def test_manual_vacancy_tags_links():
     else:
         log_fail("DELETE manual vacancy", f"Status {resp.status_code}: {resp.text}")
 
+def test_search_analytics():
+    """Test 8: Search analytics - logging and admin endpoint"""
+    print("\n" + "="*80)
+    print("TEST 8: SEARCH ANALYTICS")
+    print("="*80)
+    
+    # Test 8.1: Search logging - make searches that should be logged
+    print("\n--- Testing Search Logging (GET /api/vacancies?q=...) ---")
+    
+    # Search for "police" multiple times (should have results)
+    print("Searching for 'police' (3 times)...")
+    for i in range(3):
+        resp = requests.get(f"{BASE_URL}/vacancies?q=police&page=1")
+        if resp.status_code == 200:
+            data = resp.json()
+            if i == 0:
+                log_pass("Search logging (police)", 
+                        f"Search returned {data.get('total', 0)} results, should log silently")
+        else:
+            log_fail("Search logging (police)", f"Search failed with status {resp.status_code}")
+        time.sleep(0.3)
+    
+    # Search for nonsense term that returns 0 results
+    print("Searching for 'zzqqxx-nomatch' (should return 0 results)...")
+    resp = requests.get(f"{BASE_URL}/vacancies?q=zzqqxx-nomatch&page=1")
+    if resp.status_code == 200:
+        data = resp.json()
+        if data.get('total', -1) == 0:
+            log_pass("Search logging (zero results)", 
+                    "Search for 'zzqqxx-nomatch' returned 0 results, should log silently")
+        else:
+            log_fail("Search logging (zero results)", 
+                    f"Expected 0 results, got {data.get('total', -1)}")
+    else:
+        log_fail("Search logging (zero results)", f"Search failed with status {resp.status_code}")
+    
+    # Wait a moment for logs to be written
+    time.sleep(1)
+    
+    # Test 8.2: GET /api/admin/search-analytics without auth
+    print("\n--- Testing GET /api/admin/search-analytics (no auth) ---")
+    resp = requests.get(f"{BASE_URL}/admin/search-analytics")
+    if resp.status_code in [401, 403]:
+        log_pass("Search analytics (no auth)", f"Correctly rejected with {resp.status_code}")
+    else:
+        log_fail("Search analytics (no auth)", f"Expected 401/403, got {resp.status_code}")
+    
+    # Test 8.3: GET /api/admin/search-analytics with admin auth
+    print("\n--- Testing GET /api/admin/search-analytics (with auth) ---")
+    admin_session = admin_login()
+    if not admin_session:
+        log_fail("Search analytics (with auth)", "Admin login failed")
+        return
+    
+    resp = admin_session.get(f"{BASE_URL}/admin/search-analytics")
+    
+    if resp.status_code != 200:
+        log_fail("Search analytics (with auth)", f"Status {resp.status_code}: {resp.text}")
+        return
+    
+    data = resp.json()
+    
+    # Verify response structure
+    required_keys = ["days", "total_searches", "unique_terms", "top", "zero_results"]
+    missing_keys = [k for k in required_keys if k not in data]
+    
+    if missing_keys:
+        log_fail("Search analytics structure", f"Missing keys: {missing_keys}")
+        return
+    
+    log_pass("Search analytics structure", 
+            f"All required keys present: days={data['days']}, "
+            f"total_searches={data['total_searches']}, "
+            f"unique_terms={data['unique_terms']}")
+    
+    # Verify data types
+    if not isinstance(data['days'], int):
+        log_fail("Search analytics (days type)", f"days should be int, got {type(data['days'])}")
+    else:
+        log_pass("Search analytics (days type)", f"days is int: {data['days']}")
+    
+    if not isinstance(data['total_searches'], int):
+        log_fail("Search analytics (total_searches type)", 
+                f"total_searches should be int, got {type(data['total_searches'])}")
+    else:
+        log_pass("Search analytics (total_searches type)", 
+                f"total_searches is int: {data['total_searches']}")
+    
+    if not isinstance(data['unique_terms'], int):
+        log_fail("Search analytics (unique_terms type)", 
+                f"unique_terms should be int, got {type(data['unique_terms'])}")
+    else:
+        log_pass("Search analytics (unique_terms type)", 
+                f"unique_terms is int: {data['unique_terms']}")
+    
+    if not isinstance(data['top'], list):
+        log_fail("Search analytics (top type)", f"top should be list, got {type(data['top'])}")
+        return
+    else:
+        log_pass("Search analytics (top type)", f"top is list with {len(data['top'])} items")
+    
+    if not isinstance(data['zero_results'], list):
+        log_fail("Search analytics (zero_results type)", 
+                f"zero_results should be list, got {type(data['zero_results'])}")
+        return
+    else:
+        log_pass("Search analytics (zero_results type)", 
+                f"zero_results is list with {len(data['zero_results'])} items")
+    
+    # Test 8.4: Verify "police" appears in top with count>=2
+    print("\n--- Verifying 'police' in top searches ---")
+    top_searches = data['top']
+    
+    police_found = False
+    for item in top_searches:
+        if 'police' in item.get('query', '').lower():
+            police_found = True
+            count = item.get('count', 0)
+            if count >= 2:
+                log_pass("Search analytics (police in top)", 
+                        f"'police' found in top with count={count} (>=2): {item}")
+            else:
+                log_fail("Search analytics (police in top)", 
+                        f"'police' found but count={count} (<2): {item}")
+            break
+    
+    if not police_found:
+        log_fail("Search analytics (police in top)", 
+                "'police' not found in top searches (may need more time for logs to process)")
+    
+    # Test 8.5: Verify "zzqqxx-nomatch" appears in zero_results
+    print("\n--- Verifying 'zzqqxx-nomatch' in zero_results ---")
+    zero_results_list = data['zero_results']
+    
+    nomatch_found = False
+    for item in zero_results_list:
+        if 'zzqqxx-nomatch' in item.get('query', '').lower():
+            nomatch_found = True
+            avg_results = item.get('avg_results', -1)
+            if avg_results == 0:
+                log_pass("Search analytics (zzqqxx-nomatch in zero_results)", 
+                        f"'zzqqxx-nomatch' found with avg_results=0: {item}")
+            else:
+                log_fail("Search analytics (zzqqxx-nomatch in zero_results)", 
+                        f"'zzqqxx-nomatch' found but avg_results={avg_results} (expected 0): {item}")
+            break
+    
+    if not nomatch_found:
+        log_fail("Search analytics (zzqqxx-nomatch in zero_results)", 
+                "'zzqqxx-nomatch' not found in zero_results (may need more time for logs to process)")
+    
+    # Test 8.6: Verify top array structure and sorting
+    print("\n--- Verifying top array structure and sorting ---")
+    if top_searches:
+        first_item = top_searches[0]
+        required_item_keys = ["query", "count", "avg_results", "last_at"]
+        missing_item_keys = [k for k in required_item_keys if k not in first_item]
+        
+        if missing_item_keys:
+            log_fail("Search analytics (top item structure)", 
+                    f"Missing keys in top item: {missing_item_keys}")
+        else:
+            log_pass("Search analytics (top item structure)", 
+                    f"Top item has all required keys: {required_item_keys}")
+        
+        # Verify sorting by count descending
+        counts = [item.get('count', 0) for item in top_searches]
+        if counts == sorted(counts, reverse=True):
+            log_pass("Search analytics (top sorting)", 
+                    f"Top array correctly sorted by count descending: {counts[:5]}...")
+        else:
+            log_fail("Search analytics (top sorting)", 
+                    f"Top array not sorted correctly: {counts[:5]}...")
+    
+    # Test 8.7: Test days query parameter
+    print("\n--- Testing days query parameter ---")
+    resp = admin_session.get(f"{BASE_URL}/admin/search-analytics?days=7")
+    
+    if resp.status_code == 200:
+        data_7days = resp.json()
+        if data_7days.get('days') == 7:
+            log_pass("Search analytics (days param)", 
+                    f"days parameter works: requested 7, got {data_7days['days']}")
+        else:
+            log_fail("Search analytics (days param)", 
+                    f"days parameter mismatch: requested 7, got {data_7days.get('days')}")
+    else:
+        log_fail("Search analytics (days param)", 
+                f"Status {resp.status_code}: {resp.text}")
+
 def main():
     print("="*80)
-    print("HR DIGITAL SERVICES - BACKEND API TESTS (ROUND 3)")
+    print("HR DIGITAL SERVICES - BACKEND API TESTS (SEARCH ANALYTICS)")
     print("="*80)
     print(f"Base URL: {BASE_URL}")
     print(f"Admin: {ADMIN_EMAIL}")
     print("="*80)
     
-    # Run Round 3 tests only (as per review_request)
-    test_admin_overview()
-    test_admin_uploads()
-    test_manual_vacancy_tags_links()
+    # Run search analytics tests
+    test_search_analytics()
     
     # Summary
     print("\n" + "="*80)

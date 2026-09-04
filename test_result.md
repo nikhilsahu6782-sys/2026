@@ -211,18 +211,30 @@ frontend:
         -agent: "testing"
         -comment: "✅ ROUND 3 RE-VERIFICATION: ALL 13 TESTS PASSED (13/13). Comprehensive re-testing completed successfully. (1) Admin Overview: No auth→401✅, With auth→200 with all 8 required keys (total_vacancies, total_views, total_blogs, total_reviews, manual_vacancies, vacancy_views, blog_views, contacts) all numeric✅. (2) Admin Upload: No auth→401✅, With auth→200 {url=/api/uploads/f700147d78e64048a2e6c66407d0557d.pdf, name=test_upload.pdf, size=312, mime=application/pdf}✅, GET uploaded file→200 with Content-Type: application/pdf✅. (3) Manual Vacancy tags & important_links: POST with tags=['10th pass','haryana','latest'] and 2 important_links→200 with ID=6a9ad96ccf0bd9746fdcef44✅, GET returns exact tags✅ and both links preserved (label/url/type)✅, PUT update to tags=['updated'] and 1 link→200✅, GET confirms update persisted correctly✅, DELETE cleanup→200✅. All endpoints working correctly with proper auth enforcement, data validation, and persistence."
 
+  - task: "Search analytics logging and admin endpoint"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW search analytics feature: GET /api/vacancies?q=... silently logs searches to search_logs collection (q, q_lower, results, at). GET /api/admin/search-analytics (admin) returns {days, total_searches, unique_terms, top[], zero_results[]} with aggregated search data. Top searches sorted by count descending. Supports days query param."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ ALL 14 TESTS PASSED (14/14). (1) Search Logging: GET /api/vacancies?q=police (3 times) returned 4 results each, logged silently✅. GET /api/vacancies?q=zzqqxx-nomatch returned 0 results, logged silently✅. (2) Admin Search Analytics: No auth→401✅. With admin auth→200 with all required keys (days=30, total_searches=19, unique_terms=12)✅. All data types correct (days/total_searches/unique_terms are int, top/zero_results are arrays)✅. (3) Top Searches: 'police' found in top with count=5 (>=2), avg_results=4✅. Top array has correct structure (query, count, avg_results, last_at)✅. Top array correctly sorted by count descending [5,3,2,1,1...]✅. (4) Zero Results: 'zzqqxx-nomatch' found in zero_results with avg_results=0✅. (5) Days Parameter: GET /api/admin/search-analytics?days=7 returns days=7✅. All endpoints working correctly with proper auth enforcement, silent logging, and accurate analytics aggregation."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 2
+  test_sequence: 3
   run_ui: false
 
 test_plan:
   current_focus:
-    - "Vacancy search server-side + acronym synonyms (gds→gramin dak sevak)"
-    - "View counter increment on blog + vacancy detail GET"
-    - "Reviews CRUD (public post/list, admin list/toggle/delete)"
-    - "Custom head / verification meta per post (blogs via form, vacancies via /seo)"
+    - "Search analytics logging and admin endpoint"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -335,3 +347,63 @@ agent_communication:
       - Data persistence across GET/PUT operations
       - Object storage integration functional
       - Tags and important_links arrays preserved with all fields (label, url, type)
+    -agent: "main"
+    -message: |
+      ROUND 4 — Test the NEW search analytics feature in /app/backend/server.py. Base URL = REACT_APP_BACKEND_URL + "/api". 
+      Admin auth cookie via POST /api/auth/login {"email":"admin@hrdigitalservices.in","password":"Admin@12345"}; 
+      admin routes use require_admin.
+      
+      1) Search logging: GET /api/vacancies?q=police&page=1 a couple of times, and GET /api/vacancies?q=zzqqxx-nomatch&page=1 
+         (a term that returns 0 results). These calls should silently log to a search_logs collection (no error, still returns 
+         normal paginated JSON).
+      
+      2) GET /api/admin/search-analytics (admin) → 200 JSON with keys: days, total_searches (number), unique_terms (number), 
+         top (array), zero_results (array).
+         - Each item in top has {query, count, avg_results, last_at}.
+         - top should be sorted by count descending.
+         - "police" should appear in top with count>=2.
+         - zero_results should contain the nonsense term "zzqqxx-nomatch" (avg_results 0 / results 0), since it returns no vacancies.
+         - Test the days query param: GET /api/admin/search-analytics?days=7 → 200 and days==7.
+         - Without admin auth → 401/403.
+      
+      Report pass/fail per item with status codes and key response fields. Do not modify code.
+    -agent: "testing"
+    -message: |
+      ✅ ROUND 4 COMPLETE: ALL 14 TESTS PASSED (14/14)
+      
+      Search analytics feature testing completed successfully:
+      
+      1. SEARCH LOGGING (2/2 tests passed):
+         - GET /api/vacancies?q=police&page=1 (3 times) → 200 with 4 results each ✅
+           * Searches logged silently (no errors, normal paginated JSON returned)
+         - GET /api/vacancies?q=zzqqxx-nomatch&page=1 → 200 with 0 results ✅
+           * Zero-result search logged silently
+      
+      2. ADMIN SEARCH ANALYTICS ENDPOINT (12/12 tests passed):
+         - GET /api/admin/search-analytics without auth → 401 ✅
+         - GET /api/admin/search-analytics with admin auth → 200 ✅
+           * Response structure: all required keys present (days, total_searches, unique_terms, top, zero_results) ✅
+           * Data types correct: days=30 (int), total_searches=19 (int), unique_terms=12 (int) ✅
+           * top is array with 12 items ✅
+           * zero_results is array with 3 items ✅
+         
+         - Top searches verification:
+           * 'police' found in top with count=5 (>=2 as required) ✅
+           * avg_results=4 for 'police' searches ✅
+           * Top item structure correct: {query, count, avg_results, last_at} ✅
+           * Top array correctly sorted by count descending: [5, 3, 2, 1, 1...] ✅
+         
+         - Zero results verification:
+           * 'zzqqxx-nomatch' found in zero_results with avg_results=0 ✅
+         
+         - Days parameter:
+           * GET /api/admin/search-analytics?days=7 → 200 with days=7 ✅
+      
+      All requirements met:
+      - Silent search logging working (no errors, normal responses)
+      - Admin endpoint requires authentication (401 without auth)
+      - Response structure matches specification exactly
+      - Top searches sorted by count descending
+      - "police" appears with count>=2
+      - "zzqqxx-nomatch" appears in zero_results with avg_results=0
+      - Days query parameter working correctly

@@ -75,7 +75,7 @@ const VacancyForm = ({ initial, onClose, onSaved }) => {
   const upd = (k, v) => setF((prev) => ({ ...prev, [k]: v }));
 
   // Important-links (label + url, or uploaded PDF) helpers
-  const addLink = () => setF((p) => ({ ...p, important_links: [...(p.important_links || []), { label: "", url: "", type: "link" }] }));
+  const addLink = (type = "link") => setF((p) => ({ ...p, important_links: [...(p.important_links || []), { label: "", url: "", type }] }));
   const updLink = (i, k, v) => setF((p) => {
     const arr = [...(p.important_links || [])];
     arr[i] = { ...arr[i], [k]: v };
@@ -261,51 +261,83 @@ const VacancyForm = ({ initial, onClose, onSaved }) => {
             )}
           </Field>
 
-          {/* Important Links (URL columns + multi PDF upload) */}
-          <div className="rounded-xl border-2 border-slate-200 bg-slate-50 p-4 space-y-3" data-testid="vacancy-form-links-card">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Important Links / PDF Attachments</span>
-              <button type="button" onClick={addLink}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold"
-                data-testid="vacancy-form-add-link">
-                <FaPlus className="text-[10px]" /> Add Column
-              </button>
-            </div>
-            {(f.important_links || []).length === 0 && (
-              <p className="text-xs text-slate-400">Add rows for Notification PDF, Apply Link, Syllabus, Admit Card etc. Each row can hold a URL or an uploaded PDF.</p>
-            )}
-            {(f.important_links || []).map((lnk, i) => (
-              <div key={i} className="grid grid-cols-1 md:grid-cols-[1fr_1.4fr_auto] gap-2 items-center bg-white rounded-lg border border-slate-200 p-2" data-testid={`vacancy-form-link-row-${i}`}>
-                <input
-                  value={lnk.label || ""}
-                  onChange={(e) => updLink(i, "label", e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 outline-none text-sm text-slate-900"
-                  placeholder="Label (e.g. Notification PDF)"
-                  data-testid={`vacancy-form-link-label-${i}`}
-                />
-                <div className="flex items-center gap-1.5">
-                  <span className="text-slate-400 text-xs">{lnk.type === "pdf" ? <FaFilePdf className="text-red-500" /> : <FaLink />}</span>
-                  <input
-                    value={lnk.url || ""}
-                    onChange={(e) => updLink(i, "url", e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 outline-none text-sm text-slate-900"
-                    placeholder="https://…  or upload PDF →"
-                    data-testid={`vacancy-form-link-url-${i}`}
-                  />
-                  <label className="shrink-0 cursor-pointer inline-flex items-center gap-1 px-2.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold" title="Upload PDF">
-                    <FaUpload className="text-[10px]" /> {uploadingIdx === i ? "…" : "PDF"}
-                    <input type="file" accept="application/pdf" className="hidden"
-                      onChange={(e) => { uploadPdf(i, e.target.files?.[0]); e.target.value = ""; }}
-                      data-testid={`vacancy-form-link-pdf-${i}`} />
-                  </label>
-                </div>
-                <button type="button" onClick={() => removeLink(i)}
-                  className="p-2 rounded-lg text-red-500 hover:bg-red-50 justify-self-end" title="Remove"
-                  data-testid={`vacancy-form-link-remove-${i}`}>
-                  <FaTrash className="text-xs" />
+          {/* Important Links (named URL links) + PDF Attachments — clearly separated */}
+          <div className="rounded-xl border-2 border-slate-200 bg-slate-50 p-4 space-y-4" data-testid="vacancy-form-links-card">
+            {/* Named links */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5"><FaLink /> Important Links (name + URL)</span>
+                <button type="button" onClick={() => addLink("link")}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold"
+                  data-testid="vacancy-form-add-link">
+                  <FaPlus className="text-[10px]" /> Add Link
                 </button>
               </div>
-            ))}
+              {/* quick presets */}
+              <div className="flex flex-wrap gap-1.5">
+                {["Official Website", "Apply Online", "Admit Card", "Result", "Notification", "Syllabus", "Answer Key"].map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setF((prev) => ({ ...prev, important_links: [...(prev.important_links || []), { label: p, url: "", type: "link" }] }))}
+                    className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-white border border-slate-300 text-slate-600 hover:border-emerald-500 hover:text-emerald-600"
+                    data-testid={`vacancy-form-preset-${p.replace(/\s+/g, "-").toLowerCase()}`}
+                  >
+                    + {p}
+                  </button>
+                ))}
+              </div>
+              {(f.important_links || []).map((lnk, i) => ({ lnk, i })).filter((x) => x.lnk.type !== "pdf").map(({ lnk, i }) => (
+                <div key={i} className="grid grid-cols-1 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)_auto] gap-2 items-center bg-white rounded-lg border border-slate-200 p-2" data-testid={`vacancy-form-link-row-${i}`}>
+                  <input value={lnk.label || ""} onChange={(e) => updLink(i, "label", e.target.value)}
+                    className="px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 outline-none text-sm text-slate-900"
+                    placeholder="Name (e.g. Official Website)" data-testid={`vacancy-form-link-label-${i}`} />
+                  <input value={lnk.url || ""} onChange={(e) => updLink(i, "url", e.target.value)}
+                    className="px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 outline-none text-sm text-slate-900"
+                    placeholder="https://official-site.gov.in/…" data-testid={`vacancy-form-link-url-${i}`} />
+                  <button type="button" onClick={() => removeLink(i)} className="p-2 rounded-lg text-red-500 hover:bg-red-50 justify-self-end" title="Remove" data-testid={`vacancy-form-link-remove-${i}`}>
+                    <FaTrash className="text-xs" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-dashed border-slate-300" />
+
+            {/* PDF attachments */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5"><FaFilePdf className="text-red-500" /> PDF Attachments (name + file)</span>
+                <button type="button" onClick={() => addLink("pdf")}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold"
+                  data-testid="vacancy-form-add-pdf">
+                  <FaPlus className="text-[10px]" /> Add PDF
+                </button>
+              </div>
+              {(f.important_links || []).map((lnk, i) => ({ lnk, i })).filter((x) => x.lnk.type === "pdf").map(({ lnk, i }) => (
+                <div key={i} className="grid grid-cols-1 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)_auto] gap-2 items-center bg-white rounded-lg border border-slate-200 p-2" data-testid={`vacancy-form-pdf-row-${i}`}>
+                  <input value={lnk.label || ""} onChange={(e) => updLink(i, "label", e.target.value)}
+                    className="px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 outline-none text-sm text-slate-900"
+                    placeholder="Name (e.g. Notification PDF)" data-testid={`vacancy-form-pdf-label-${i}`} />
+                  <div className="flex items-center gap-2 min-w-0">
+                    {lnk.url ? (
+                      <a href={lnk.url} target="_blank" rel="noreferrer" className="flex-1 min-w-0 truncate text-xs text-emerald-700 hover:underline flex items-center gap-1"><FaFilePdf className="text-red-500 shrink-0" /> {lnk.url.split("/").pop()}</a>
+                    ) : (
+                      <span className="flex-1 text-xs text-slate-400">No file uploaded yet</span>
+                    )}
+                    <label className="shrink-0 cursor-pointer inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold">
+                      <FaUpload className="text-[10px]" /> {uploadingIdx === i ? "Uploading…" : (lnk.url ? "Replace" : "Upload PDF")}
+                      <input type="file" accept="application/pdf" className="hidden"
+                        onChange={(e) => { uploadPdf(i, e.target.files?.[0]); e.target.value = ""; }}
+                        data-testid={`vacancy-form-pdf-file-${i}`} />
+                    </label>
+                  </div>
+                  <button type="button" onClick={() => removeLink(i)} className="p-2 rounded-lg text-red-500 hover:bg-red-50 justify-self-end" title="Remove" data-testid={`vacancy-form-pdf-remove-${i}`}>
+                    <FaTrash className="text-xs" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
 
           <Field label="Description / Notes (plain text or simple HTML)">

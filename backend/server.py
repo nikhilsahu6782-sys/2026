@@ -745,6 +745,17 @@ async def list_vacancies(
     per_page = min(max(per_page, 1), 50)
     page = max(page, 1)
     total = len(public)
+    if q and page == 1:
+        try:
+            qn = q.strip()
+            await db.search_logs.insert_one({
+                "q": qn[:120],
+                "q_lower": qn.lower()[:120],
+                "results": total,
+                "at": datetime.now(timezone.utc),
+            })
+        except Exception:
+            pass
     start = (page - 1) * per_page
     return {
         "items": public[start:start + per_page],
@@ -1638,6 +1649,42 @@ async def admin_overview(_=Depends(require_admin)):
         "vacancy_views": vac_views,
         "blog_views": blog_views,
         "contacts": await db.contacts.count_documents({}),
+    }
+
+
+@api.get("/admin/search-analytics")
+async def admin_search_analytics(days: int = 30, _=Depends(require_admin)):
+    since = datetime.now(timezone.utc) - timedelta(days=max(days, 1))
+    match = {"at": {"$gte": since}}
+    total_searches = await db.search_logs.count_documents(match)
+    unique_terms = len(await db.search_logs.distinct("q_lower", match))
+
+    async def _agg(extra_match, limit):
+        rows = await db.search_logs.aggregate([
+            {"$match": {**match, **extra_match}},
+            {"$group": {
+                "_id": "$q_lower",
+                "count": {"$sum": 1},
+                "q": {"$last": "$q"},
+                "avg_results": {"$avg": "$results"},
+                "last_at": {"$max": "$at"},
+            }},
+            {"$sort": {"count": -1}},
+            {"$limit": limit},
+        ]).to_list(limit)
+        return [{
+            "query": r.get("q") or r["_id"],
+            "count": r["count"],
+            "avg_results": round(r.get("avg_results") or 0),
+            "last_at": r.get("last_at"),
+        } for r in rows]
+
+    return {
+        "days": days,
+        "total_searches": total_searches,
+        "unique_terms": unique_terms,
+        "top": await _agg({}, 30),
+        "zero_results": await _agg({"results": 0}, 20),
     }
 
 

@@ -13,6 +13,7 @@ const NAV = [
     section: "Overview",
     items: [
       { to: "/admin", end: true, label: "Dashboard", icon: FaTachometerAlt, testid: "admin-nav-dashboard" },
+      { to: "/admin/search-analytics", label: "Search Analytics", icon: FaSearch, testid: "admin-nav-search-analytics" },
       { to: "/admin/integrations", label: "Analytics & SEO", icon: FaChartLine, testid: "admin-nav-integrations" },
     ],
   },
