@@ -13,6 +13,7 @@ import Footer from "@/components/Footer";
 import ProcessingLoader from "@/components/ProcessingLoader";
 
 import Home from "@/pages/Home";
+import ThemePreview from "@/pages/ThemePreview";
 import About from "@/pages/About";
 import Services from "@/pages/Services";
 import Enquiry from "@/pages/Enquiry";
@@ -53,6 +54,7 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/" element={<Vacancies />} />
+      <Route path="/theme-preview" element={<ThemePreview />} />
       <Route path="/solar" element={<Home />} />
       <Route path="/about" element={<About />} />
       <Route path="/services" element={<Services />} />
