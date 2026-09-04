@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
+import { HexColorPicker, HexColorInput } from "react-colorful";
 import {
   FaPalette, FaCheck, FaDesktop, FaSearch, FaBriefcase, FaRegClock,
-  FaMapMarkerAlt, FaBuilding, FaArrowRight, FaChevronDown, FaBell,
+  FaMapMarkerAlt, FaBuilding, FaArrowRight, FaChevronDown, FaBell, FaEyeDropper,
 } from "react-icons/fa";
 
 /* ---------------------------------------------------------------------------
@@ -26,6 +27,13 @@ const THEMES = {
 
 const PRIMARIES = ["#2f6bff", "#60a5fa", "#475569", "#9f2d2d", "#0f766e", "#2f8a3b", "#e8935a", "#a855f7", "#93b4f5"];
 
+// Preset swatches shown inside the custom picker (like the reference image grid)
+const SWATCH_GRID = [
+  "#0b1220", "#334155", "#64748b", "#cbd5e1", "#10b981", "#059669", "#34d399", "#22d3ee",
+  "#93c5fd", "#bfdbfe", "#e2e8f0", "#14b8a6", "#a7f3d0", "#2dd4bf", "#111827", "#f59e0b",
+  "#f1f5f9", "#e5e7eb", "#f8fafc", "#fbbf24", "#fca5a5", "#f87171", "#0f172a", "#ffffff",
+];
+
 const isDarkTheme = (key) => ["dark", "ember", "dracula", "midnight"].includes(key);
 
 const contrastText = (hex) => {
@@ -43,12 +51,23 @@ const SAMPLE_JOBS = [
 
 const ThemeSwitcher = ({ themeKey, setThemeKey, primary, setPrimary }) => {
   const [open, setOpen] = useState(false);
+  const [showCustom, setShowCustom] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) { setOpen(false); setShowCustom(false); } };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+
+  const isPreset = PRIMARIES.includes((primary || "").toLowerCase());
+  const pickEyedropper = async () => {
+    if (window.EyeDropper) {
+      try {
+        const res = await new window.EyeDropper().open();
+        if (res?.sRGBHex) setPrimary(res.sRGBHex);
+      } catch { /* cancelled */ }
+    }
+  };
 
   const Row = ({ k, indent }) => {
     const t = THEMES[k];
@@ -106,11 +125,11 @@ const ThemeSwitcher = ({ themeKey, setThemeKey, primary, setPrimary }) => {
           {["luxury", "retro", "arctic", "nature", "ember", "dracula", "midnight"].map((k) => <Row key={k} k={k} />)}
           <div className="px-3 pt-3 pb-1">
             <div className="text-[15px] font-bold text-[var(--text)] mb-2">Primary Color</div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 items-center">
               {PRIMARIES.map((c) => (
                 <button
                   key={c}
-                  onClick={() => setPrimary(c)}
+                  onClick={() => { setPrimary(c); setShowCustom(false); }}
                   className={`w-9 h-9 rounded-lg grid place-items-center transition ${primary === c ? "ring-2 ring-offset-2 ring-[var(--text)] ring-offset-[var(--surface)]" : ""}`}
                   style={{ background: c }}
                   data-testid={`primary-${c}`}
@@ -118,7 +137,56 @@ const ThemeSwitcher = ({ themeKey, setThemeKey, primary, setPrimary }) => {
                   {primary === c && <FaCheck className="text-xs" style={{ color: contrastText(c) }} />}
                 </button>
               ))}
+              {/* Custom color trigger (rainbow) */}
+              <button
+                onClick={() => setShowCustom((s) => !s)}
+                className={`w-9 h-9 rounded-lg grid place-items-center transition ${!isPreset ? "ring-2 ring-offset-2 ring-[var(--text)] ring-offset-[var(--surface)]" : ""}`}
+                style={{ background: "conic-gradient(from 0deg, #ef4444, #f59e0b, #eab308, #22c55e, #06b6d4, #3b82f6, #a855f7, #ef4444)" }}
+                title="Custom color"
+                data-testid="primary-custom-btn"
+              >
+                {!isPreset && <FaCheck className="text-xs text-white drop-shadow" />}
+              </button>
             </div>
+
+            {showCustom && (
+              <div className="mt-3 rounded-2xl border border-[var(--border)] p-3 bg-[var(--soft)]" data-testid="custom-color-panel">
+                <div className="custom-picker"><HexColorPicker color={primary} onChange={setPrimary} /></div>
+                <div className="flex items-center gap-2 mt-3">
+                  <button
+                    onClick={pickEyedropper}
+                    className="w-9 h-9 rounded-lg grid place-items-center border border-[var(--border)] text-[var(--muted)] hover:text-[var(--primary)] disabled:opacity-40"
+                    title="Pick from screen"
+                    disabled={typeof window !== "undefined" && !window.EyeDropper}
+                    data-testid="custom-eyedropper"
+                  >
+                    <FaEyeDropper />
+                  </button>
+                  <div className="flex-1 flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2">
+                    <span className="text-[var(--muted)] text-sm font-bold">#</span>
+                    <HexColorInput
+                      color={primary}
+                      onChange={setPrimary}
+                      className="flex-1 bg-transparent outline-none py-2 text-[var(--text)] text-sm uppercase tracking-wide"
+                      data-testid="custom-hex-input"
+                    />
+                    <span className="text-[10px] text-[var(--muted)] font-bold">HEX</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-8 gap-1.5 mt-3">
+                  {SWATCH_GRID.map((c, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setPrimary(c)}
+                      className="w-full aspect-square rounded-md border border-[var(--border)]"
+                      style={{ background: c }}
+                      data-testid={`custom-swatch-${i}`}
+                    />
+                  ))}
+                </div>
+                <p className="text-[11px] text-[var(--muted)] mt-2">कोई भी रंग चुनें — फिर ऊपर से <b>Light</b> या <b>Dark</b> base चुनकर उसी रंग को light/dark में देखें।</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -149,6 +217,12 @@ const ThemePreview = () => {
 
   return (
     <div style={vars} className="min-h-screen bg-[var(--bg)] text-[var(--text)] transition-colors" data-testid="theme-preview-root">
+      <style>{`
+        .custom-picker .react-colorful { width: 100%; height: 160px; }
+        .custom-picker .react-colorful__saturation { border-radius: 10px 10px 0 0; }
+        .custom-picker .react-colorful__hue { height: 16px; border-radius: 0 0 10px 10px; margin-top: 8px; border-radius: 10px; }
+        .custom-picker .react-colorful__pointer { width: 18px; height: 18px; }
+      `}</style>
       {/* preview ribbon */}
       <div className="text-center text-[13px] font-semibold py-2 bg-[var(--primary)]" style={{ color: "var(--primary-fg)" }} data-testid="preview-ribbon">
         PREVIEW — यह सिर्फ demo है, live site पर अभी कुछ नहीं बदला। ऊपर-दाएँ palette आइकन से theme बदलें।
