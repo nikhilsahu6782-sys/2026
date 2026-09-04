@@ -4,6 +4,7 @@ import api from "@/lib/api";
 import SEO from "@/components/SEO";
 import RawHead from "@/components/RawHead";
 import Reviews from "@/components/Reviews";
+import ChannelLinks from "@/components/ChannelLinks";
 import { useI18n } from "@/context/I18nContext";
 import { FaWhatsapp, FaCalendarAlt, FaUser, FaNewspaper } from "react-icons/fa";
 import { WHATSAPP_CHANNEL_URL } from "@/lib/whatsapp";
@@ -85,6 +86,7 @@ const BlogDetail = () => {
       </div>
 
       <Reviews targetType="blog" targetId={blog.slug} hi={hi} />
+      <ChannelLinks hi={hi} />
     </div>
   );
 };

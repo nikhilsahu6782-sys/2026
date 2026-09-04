@@ -14,6 +14,7 @@ import WhatsAppSummaryCard from "@/components/WhatsAppSummaryCard";
 import SEO from "@/components/SEO";
 import RawHead from "@/components/RawHead";
 import Reviews from "@/components/Reviews";
+import ChannelLinks from "@/components/ChannelLinks";
 
 const KIND_META = {
   apply:        { hi: "ऑनलाइन आवेदन",   en: "Apply Online",       icon: FaCheckCircle,     cls: "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/15", iconCls: "text-emerald-400" },
@@ -474,6 +475,7 @@ const VacancyDetail = () => {
       </div>
 
       <Reviews targetType="vacancy" targetId={v.id || id} hi={lang === "hi"} />
+      <ChannelLinks hi={lang === "hi"} />
 
       {/* Share poster modal */}
       {shareOpen && posterVacancy && (

@@ -34,7 +34,7 @@ from auth import (
 )
 from emails import send_email, send_email_async, render_confirmation, render_reset
 from csc_services import CSC_CATEGORIES, all_service_ids, find_service
-from scrapers import fetch_freejobalert, refresh_vacancies_into_db, fetch_article_detail, backfill_application_mode, is_expired, parse_last_date, state_from_text, _cat_from_title, _dedupe_key
+from scrapers import fetch_freejobalert, refresh_vacancies_into_db, fetch_article_detail, backfill_application_mode, is_expired, parse_last_date, state_from_text, _cat_from_title, _dedupe_key, clean_promo_html, _is_junk_link
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # MongoDB
@@ -1062,9 +1062,13 @@ async def admin_update_manual_vacancy(vac_id: str, payload: ManualVacancyIn, _=D
     existing = await db.vacancies.find_one({"_id": oid})
     if not existing:
         raise HTTPException(404, "Vacancy not found")
-    if existing.get("source") != "manual":
-        raise HTTPException(400, "Only manual vacancies can be edited from the admin panel")
-    new_doc = _manual_doc(payload, existing_url=existing["url"])
+    # Editing an API (scraped) post is allowed — doing so promotes it to a
+    # "manual" post so it ranks better and is never touched by auto-refresh /
+    # Shuffle-API-SEO again. Manual posts can of course also be edited.
+    new_doc = _manual_doc(payload, existing_url=existing.get("url"))
+    if existing.get("source") != "manual" and not existing.get("original_title"):
+        new_doc["original_title"] = existing.get("title")
+        new_doc["original_description"] = existing.get("seo_description") or existing.get("description")
     new_doc["whatsapp_summary"] = build_whatsapp_summary({**new_doc, "_id": oid})
     await db.vacancies.update_one({"_id": oid}, {"$set": new_doc})
     updated = await db.vacancies.find_one({"_id": oid})
@@ -1549,6 +1553,30 @@ async def admin_shuffle_api_seo(_=Depends(require_admin)):
     return {"ok": True, "shuffled": n}
 
 
+@api.post("/admin/vacancies/clean-promo")
+async def admin_clean_promo(_=Depends(require_admin)):
+    """Strip FreeJobAlert promo links/blocks (Join Telegram/WhatsApp/Arattai
+    channel, Sarkari Result, Download Mobile App, etc.) from already-stored
+    scraped vacancy content + important_links."""
+    cleaned = 0
+    async for v in db.vacancies.find({"source": {"$ne": "manual"}}, {"content_html": 1, "important_links": 1}):
+        update = {}
+        html = v.get("content_html")
+        if html:
+            new_html = clean_promo_html(html)
+            if new_html != html:
+                update["content_html"] = new_html
+        links = v.get("important_links") or []
+        if links:
+            kept = [l for l in links if not _is_junk_link(l.get("text") or l.get("label") or "", l.get("href") or l.get("url") or "")]
+            if len(kept) != len(links):
+                update["important_links"] = kept
+        if update:
+            await db.vacancies.update_one({"_id": v["_id"]}, {"$set": update})
+            cleaned += 1
+    return {"ok": True, "cleaned": cleaned}
+
+
 @api.get("/admin/vacancies-seo")
 async def admin_vacancies_seo_list(page: int = 1, per_page: int = 20, q: str = "", _=Depends(require_admin)):
     """Paginated list of ALL vacancies (manual + scraped) with their SEO fields."""
@@ -1581,12 +1609,20 @@ async def admin_update_vacancy_seo(vac_id: str, payload: VacancySeoIn, _=Depends
     existing = await db.vacancies.find_one({"_id": oid})
     if not existing:
         raise HTTPException(404, "Vacancy not found")
-    await db.vacancies.update_one({"_id": oid}, {"$set": {
+    update = {
         "seo_title": (payload.seo_title or "").strip()[:200] or None,
         "focus_keyword": (payload.focus_keyword or "").strip()[:120] or None,
         "seo_description": (payload.seo_description or "").strip()[:400] or None,
         "custom_head": (payload.custom_head or "").strip()[:5000] or None,
-    }})
+        # Editing SEO promotes a scraped (API) post to "manual" so the periodic
+        # Shuffle-API-SEO job never overwrites the admin's custom SEO again.
+        "source": "manual",
+        "source_type": "manual",
+    }
+    if existing.get("source") != "manual" and not existing.get("original_title"):
+        update["original_title"] = existing.get("title")
+        update["original_description"] = existing.get("seo_description") or existing.get("description")
+    await db.vacancies.update_one({"_id": oid}, {"$set": update})
     updated = await db.vacancies.find_one({"_id": oid})
     return doc_public(updated)
 
@@ -1819,16 +1855,25 @@ async def get_site_settings():
     return {
         "ga4_id": doc.get("ga4_id", ""),
         "gsc_verification": doc.get("gsc_verification", ""),
+        "channel_whatsapp": doc.get("channel_whatsapp", ""),
+        "channel_telegram": doc.get("channel_telegram", ""),
+        "channel_arattai": doc.get("channel_arattai", ""),
+        "channel_youtube": doc.get("channel_youtube", ""),
+        "channel_instagram": doc.get("channel_instagram", ""),
+        "channel_app": doc.get("channel_app", ""),
     }
 
 
 @api.put("/admin/site-settings")
 async def update_site_settings(payload: dict = Body(...), _=Depends(require_admin)):
-    update = {
-        "ga4_id": str(payload.get("ga4_id", "")).strip()[:40],
-        "gsc_verification": str(payload.get("gsc_verification", "")).strip()[:400],
-    }
-    await db.settings.update_one({"_id": "site"}, {"$set": update}, upsert=True)
+    fields = ["ga4_id", "gsc_verification", "channel_whatsapp", "channel_telegram",
+              "channel_arattai", "channel_youtube", "channel_instagram", "channel_app"]
+    update = {}
+    for f in fields:
+        if f in payload:
+            update[f] = str(payload.get(f) or "").strip()[:400]
+    if update:
+        await db.settings.update_one({"_id": "site"}, {"$set": update}, upsert=True)
     return {"ok": True, **update}
 
 
@@ -2136,6 +2181,33 @@ async def startup():
             log.info(f"[startup] Enriched {len(stale)} vacancies (WhatsApp summary / SEO variants)")
     except Exception as e:
         log.warning(f"vacancy enrich backfill failed: {e}")
+
+    # One-time backfill: strip FreeJobAlert promo blocks/links from already-stored
+    # scraped content so old posts also lose the Join Telegram/WhatsApp/Arattai,
+    # Sarkari Result & Download Mobile App junk.
+    try:
+        flag = await db.settings.find_one({"_id": "promo_cleaned_v1"})
+        if not flag:
+            cleaned = 0
+            async for v in db.vacancies.find({"source": {"$ne": "manual"}}, {"content_html": 1, "important_links": 1}):
+                update = {}
+                html = v.get("content_html")
+                if html:
+                    nh = clean_promo_html(html)
+                    if nh != html:
+                        update["content_html"] = nh
+                links = v.get("important_links") or []
+                if links:
+                    kept = [l for l in links if not _is_junk_link(l.get("text") or l.get("label") or "", l.get("href") or l.get("url") or "")]
+                    if len(kept) != len(links):
+                        update["important_links"] = kept
+                if update:
+                    await db.vacancies.update_one({"_id": v["_id"]}, {"$set": update})
+                    cleaned += 1
+            await db.settings.update_one({"_id": "promo_cleaned_v1"}, {"$set": {"at": datetime.now(timezone.utc), "cleaned": cleaned}}, upsert=True)
+            log.info(f"[startup] Promo cleanup done on {cleaned} scraped vacancies")
+    except Exception as e:
+        log.warning(f"promo cleanup backfill failed: {e}")
 
     # One-time backfill: dedupe_key on existing vacancies so the 2nd source
     # (Haryana DC Rate/HKRN) can never create duplicate posts.

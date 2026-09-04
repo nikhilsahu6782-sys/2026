@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { FaSearch, FaChartLine, FaExternalLinkAlt, FaSave, FaSitemap, FaRobot, FaGoogle } from "react-icons/fa";
+import { FaSearch, FaChartLine, FaExternalLinkAlt, FaSave, FaSitemap, FaRobot, FaGoogle, FaWhatsapp, FaTelegram, FaYoutube, FaInstagram, FaMobileAlt, FaComments } from "react-icons/fa";
 import { adminApi } from "./adminAuth";
 import { BACKEND_URL } from "@/lib/api";
 
@@ -8,12 +8,16 @@ const inputCls =
   "w-full px-3 py-2 rounded border border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none text-sm text-slate-900 bg-white";
 
 const AdminIntegrations = () => {
-  const [form, setForm] = useState({ ga4_id: "", gsc_verification: "" });
+  const [form, setForm] = useState({
+    ga4_id: "", gsc_verification: "",
+    channel_whatsapp: "", channel_telegram: "", channel_arattai: "",
+    channel_youtube: "", channel_instagram: "", channel_app: "",
+  });
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     adminApi.get("/site-settings")
-      .then((r) => setForm({ ga4_id: r.data.ga4_id || "", gsc_verification: r.data.gsc_verification || "" }))
+      .then((r) => setForm((prev) => ({ ...prev, ...r.data })))
       .catch(() => {});
   }, []);
 
@@ -62,6 +66,27 @@ const AdminIntegrations = () => {
             <p className="text-xs text-slate-400 mt-1">Analytics → Admin → Data Streams → Web → Measurement ID (G-…). Save ke baad visitor tracking auto shuru ho jaayega.</p>
           </div>
           <LinkBtn href="https://analytics.google.com/" icon={FaChartLine} testid="ga-dashboard-link">Open Google Analytics</LinkBtn>
+        </div>
+      </div>
+
+      {/* Your Channel Links */}
+      <div className="bg-white rounded border border-slate-200 shadow-sm mb-5" data-testid="channel-links-card">
+        <div className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-800 flex items-center gap-2"><FaComments className="text-emerald-600" /> Your Channel Links</div>
+        <div className="p-4 space-y-3">
+          <p className="text-xs text-slate-500">Yeh aapke apne channels hain — har vacancy & post ke neeche "Join Our Channels" me dikhenge. Jo khaali chhodenge woh nahi dikhega. (FreeJobAlert ke promo links ab hata diye gaye hain.)</p>
+          {[
+            { k: "channel_whatsapp", label: "WhatsApp Channel", icon: FaWhatsapp, ph: "https://whatsapp.com/channel/..." },
+            { k: "channel_telegram", label: "Telegram Channel", icon: FaTelegram, ph: "https://t.me/yourchannel" },
+            { k: "channel_arattai", label: "Arattai Channel", icon: FaComments, ph: "https://arattai.in/..." },
+            { k: "channel_youtube", label: "YouTube Channel", icon: FaYoutube, ph: "https://youtube.com/@yourchannel" },
+            { k: "channel_instagram", label: "Instagram", icon: FaInstagram, ph: "https://instagram.com/yourpage" },
+            { k: "channel_app", label: "Mobile App Link", icon: FaMobileAlt, ph: "https://play.google.com/store/apps/..." },
+          ].map(({ k, label, icon: Icon, ph }) => (
+            <div key={k}>
+              <label className="block text-[13px] font-semibold text-slate-700 mb-1 flex items-center gap-1.5"><Icon className="text-emerald-600" /> {label}</label>
+              <input value={form[k] || ""} onChange={(e) => setForm({ ...form, [k]: e.target.value })} placeholder={ph} className={inputCls} data-testid={`channel-input-${k}`} />
+            </div>
+          ))}
         </div>
       </div>
 

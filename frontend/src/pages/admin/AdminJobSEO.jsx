@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { FaSearch, FaEdit, FaRandom, FaWhatsapp, FaTimes, FaSave } from "react-icons/fa";
+import { FaSearch, FaEdit, FaRandom, FaWhatsapp, FaTimes, FaSave, FaListUl } from "react-icons/fa";
 import { adminApi } from "./adminAuth";
+import api from "@/lib/api";
 import { computeSeoScore } from "@/lib/utils-seo";
+import VacancyForm from "./VacancyForm";
 
 const inputCls = "mt-1 w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 outline-none text-sm text-slate-900 bg-white";
 
@@ -16,6 +18,7 @@ const AdminJobSEO = () => {
   const [form, setForm] = useState({ seo_title: "", focus_keyword: "", seo_description: "", custom_head: "" });
   const [saving, setSaving] = useState(false);
   const [shuffling, setShuffling] = useState(false);
+  const [editingFull, setEditingFull] = useState(null); // full vacancy for detail edit
 
   const load = (p = page, query = q) => {
     setLoading(true);
@@ -39,11 +42,27 @@ const AdminJobSEO = () => {
     setForm({ seo_title: v.seo_title || "", focus_keyword: v.focus_keyword || "", seo_description: v.seo_description || "", custom_head: v.custom_head || "" });
   };
 
+  // Open the full details editor. Fetches the complete vacancy and normalises
+  // scraped important_links ({kind,text,href}) to the manual shape ({label,url,type}).
+  const openEditFull = async (v) => {
+    try {
+      const { data } = await api.get(`/vacancies/${v.id}`);
+      const links = (data.important_links || []).map((l) => ({
+        label: l.label || l.text || "Link",
+        url: l.url || l.href || "",
+        type: l.type || ((l.url || l.href || "").toLowerCase().split("?")[0].endsWith(".pdf") ? "pdf" : "link"),
+      })).filter((l) => l.url);
+      setEditingFull({ ...data, important_links: links });
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Could not load vacancy");
+    }
+  };
+
   const save = async () => {
     setSaving(true);
     try {
       await adminApi.put(`/admin/vacancies/${editing.id}/seo`, form);
-      toast.success("SEO settings save ho gayi");
+      toast.success("SEO save ho gayi — post ab Manual hai (Shuffle ab isse nahi badlega)");
       setEditing(null);
       load();
     } catch (err) {
@@ -154,6 +173,9 @@ const AdminJobSEO = () => {
                       <button onClick={() => openEdit(v)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-emerald-700 hover:bg-emerald-50 text-xs font-semibold" data-testid={`admin-job-seo-edit-${v.id}`}>
                         <FaEdit /> Edit SEO
                       </button>
+                      <button onClick={() => openEditFull(v)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-slate-700 hover:bg-slate-100 text-xs font-semibold" title="Edit all details (moves API post to Manual)" data-testid={`admin-job-seo-edit-full-${v.id}`}>
+                        <FaListUl /> Edit Details
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -182,6 +204,9 @@ const AdminJobSEO = () => {
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Edit SEO</h2>
                 <p className="text-xs text-slate-500 line-clamp-1">{editing.title}</p>
+                {editing.source !== "manual" && (
+                  <p className="text-[11px] text-amber-600 font-semibold mt-0.5">Note: save karte hi yeh API post Manual ban jayegi (Shuffle ab isse nahi chhedega).</p>
+                )}
               </div>
               <button onClick={() => setEditing(null)} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100" data-testid="admin-job-seo-close">
                 <FaTimes />
@@ -231,6 +256,13 @@ const AdminJobSEO = () => {
             </div>
           </div>
         </div>
+      )}
+      {editingFull && (
+        <VacancyForm
+          initial={editingFull}
+          onClose={() => setEditingFull(null)}
+          onSaved={() => { setEditingFull(null); toast.success("Post updated — ab yeh Manual hai (Shuffle isse nahi badlega)"); load(); }}
+        />
       )}
     </div>
   );

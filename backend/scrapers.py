@@ -584,9 +584,37 @@ def _is_junk_link(text: str, href: str) -> bool:
         return True
     if "whatsapp" in h or "facebook.com" in h or "twitter.com" in h or "instagram" in h:
         return True
-    if t in ("join now", "subscribe", "register", "follow us", "download app"):
+    # FreeJobAlert self-promo channels / apps / cross-site promos
+    if "arattai" in h or "arattai" in t:
+        return True
+    if "sarkariresult" in h or "sarkari-result" in h:
+        return True
+    if "play.google.com" in h or "apps.apple.com" in h or "youtube.com" in h or "youtu.be" in h:
+        return True
+    if t in ("join now", "subscribe", "register", "follow us", "download app",
+             "sarkari result", "download mobile app", "mobile app",
+             "join arattai channel", "join telegram channel", "join whatsapp channel",
+             "click here to join"):
+        return True
+    if ("join" in t and "channel" in t) or ("download" in t and "app" in t):
         return True
     return False
+
+
+# Promotional junk rows that FreeJobAlert injects into article bodies. Any block
+# whose text matches these is removed from the cleaned content_html.
+PROMO_PATTERNS = re.compile(
+    r"(join\s+(arattai|telegram|whatsapp)\s+channel"
+    r"|arattai\s+channel|whatsapp\s+channel|telegram\s+channel"
+    r"|download\s+mobile\s+app|download\s+(our\s+)?app|mobile\s+app"
+    r"|sarkari\s*result\s*:|click\s+here\s+to\s+join|register\s+for\s+job\s+alerts)",
+    re.I,
+)
+
+
+def _is_promo_text(txt: str) -> bool:
+    t = (txt or "").strip()
+    return bool(t) and len(t) < 220 and bool(PROMO_PATTERNS.search(t))
 
 
 def _extract_important_links(article) -> list[dict]:
@@ -638,10 +666,11 @@ def _clean_article_html(article) -> str:
                ["ads", "adsbygoogle", "share", "related", "newsletter", "telegram",
                 "subscribe", "author", "post-tags", "sidebar", "sociable", "yarpp"]):
             el.decompose()
-    # Remove paragraphs with self-promo copy
-    for p in article.find_all(["p", "div"]):
-        txt = p.get_text(" ", strip=True).lower()
-        if any(m in txt for m in UNWANTED_TEXT_MARKERS) and len(txt) < 400:
+    # Remove paragraphs / list-items / table-rows with self-promo copy
+    for p in article.find_all(["p", "div", "li", "tr"]):
+        txt = p.get_text(" ", strip=True)
+        low = txt.lower()
+        if (any(m in low for m in UNWANTED_TEXT_MARKERS) and len(low) < 400) or _is_promo_text(txt):
             p.decompose()
     # Strip inline event handler attrs (onclick, onerror, onload, etc.) on ALL elements
     for el in article.find_all(True):
@@ -680,6 +709,30 @@ def _clean_article_html(article) -> str:
         if not el.get_text(strip=True) and not el.find("img"):
             el.decompose()
     return str(article)
+
+
+def clean_promo_html(html: str) -> str:
+    """Strip FreeJobAlert promo blocks (Join Telegram/WhatsApp/Arattai channel,
+    Sarkari Result, Download Mobile App, etc.) from an already-stored HTML string."""
+    if not html:
+        return html
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+    except Exception:
+        return html
+    # drop promo anchors
+    for a in soup.find_all("a", href=True):
+        if _is_junk_link(a.get_text(" ", strip=True), a["href"]):
+            a.decompose()
+    # drop promo blocks
+    for el in soup.find_all(["p", "div", "li", "tr", "ul", "ol", "table"]):
+        if _is_promo_text(el.get_text(" ", strip=True)):
+            el.decompose()
+    # drop now-empty leftovers
+    for el in soup.find_all(["p", "div", "li", "tr"]):
+        if not el.get_text(strip=True) and not el.find("img"):
+            el.decompose()
+    return str(soup)
 
 
 async def fetch_article_detail(url: str) -> Dict | None:

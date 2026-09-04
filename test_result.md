@@ -226,15 +226,78 @@ frontend:
         -agent: "testing"
         -comment: "✅ ALL 14 TESTS PASSED (14/14). (1) Search Logging: GET /api/vacancies?q=police (3 times) returned 4 results each, logged silently✅. GET /api/vacancies?q=zzqqxx-nomatch returned 0 results, logged silently✅. (2) Admin Search Analytics: No auth→401✅. With admin auth→200 with all required keys (days=30, total_searches=19, unique_terms=12)✅. All data types correct (days/total_searches/unique_terms are int, top/zero_results are arrays)✅. (3) Top Searches: 'police' found in top with count=5 (>=2), avg_results=4✅. Top array has correct structure (query, count, avg_results, last_at)✅. Top array correctly sorted by count descending [5,3,2,1,1...]✅. (4) Zero Results: 'zzqqxx-nomatch' found in zero_results with avg_results=0✅. (5) Days Parameter: GET /api/admin/search-analytics?days=7 returns days=7✅. All endpoints working correctly with proper auth enforcement, silent logging, and accurate analytics aggregation."
 
+  - task: "SEO edit converts scraped API post to manual (protects from shuffle)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW round-3 feature: PUT /api/admin/vacancies/{id}/seo now converts scraped (API) posts to source='manual' so they are protected from future shuffle-seo operations. POST /api/admin/vacancies/shuffle-seo only touches vacancies with source != 'manual'."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ ALL 6 TESTS PASSED (6/6). (1) Found scraped vacancy with source=freejobalert✅. (2) PUT /api/admin/vacancies/{id}/seo with custom seo_title='MYCUSTOM SEO TITLE' → 200✅. (3) GET /api/vacancies/{id} → source changed to 'manual' (was freejobalert)✅, seo_title='MYCUSTOM SEO TITLE' persisted✅. (4) POST /api/admin/vacancies/shuffle-seo → 200, shuffled 972 vacancies✅. (5) GET /api/vacancies/{id} again → seo_title STILL 'MYCUSTOM SEO TITLE' (shuffle did NOT overwrite manual post)✅. SEO edit protection working correctly."
+
+  - task: "Full edit converts scraped API post to manual"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW round-3 feature: PUT /api/admin/vacancies/{id} now works for both manual and scraped posts. Editing a scraped post converts it to source='manual' so it ranks better and is never touched by auto-refresh or shuffle-seo again."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ ALL 5 TESTS PASSED (5/5). (1) Found scraped vacancy with source=freejobalert✅. (2) PUT /api/admin/vacancies/{id} with title='Edited Full Title', tags=['tagx'], important_links=[{Official link}] → 200✅. (3) GET /api/vacancies/{id} → source changed to 'manual' (was freejobalert)✅, title='Edited Full Title'✅, tags=['tagx']✅, important_links contains Official link with correct label/url/type✅. Full edit conversion working correctly."
+
+  - task: "Promo cleanup endpoint"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW round-3 feature: POST /api/admin/vacancies/clean-promo (admin only) strips FreeJobAlert promo links/blocks from scraped vacancy content and important_links. Returns {ok: true, cleaned: <int>}."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ ALL 2 TESTS PASSED (2/2). (1) POST /api/admin/vacancies/clean-promo without auth → 401✅. (2) POST /api/admin/vacancies/clean-promo with admin auth → 200 with {ok: true, cleaned: 2}✅. Auth enforcement and response structure correct."
+
+  - task: "Channel link settings (WhatsApp, Telegram, etc.)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW round-3 feature: PUT /api/admin/site-settings (admin) accepts channel_whatsapp, channel_telegram, channel_arattai, channel_youtube, channel_instagram, channel_app. GET /api/site-settings (public) returns all these fields."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ ALL 6 TESTS PASSED (6/6). (1) PUT /api/admin/site-settings without auth → 401✅. (2) PUT /api/admin/site-settings with admin auth and {channel_whatsapp, channel_telegram} → 200✅. (3) GET /api/site-settings → 200 with all 6 required keys (channel_whatsapp, channel_telegram, channel_arattai, channel_youtube, channel_instagram, channel_app)✅. (4) channel_whatsapp value correct ('https://whatsapp.com/channel/abc')✅. (5) channel_telegram value correct ('https://t.me/mychan')✅. All endpoints working correctly with proper auth enforcement and data persistence."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 3
+  test_sequence: 4
   run_ui: false
 
 test_plan:
   current_focus:
-    - "Search analytics logging and admin endpoint"
+    - "SEO edit converts scraped API post to manual (protects from shuffle)"
+    - "Full edit converts scraped API post to manual"
+    - "Promo cleanup endpoint"
+    - "Channel link settings (WhatsApp, Telegram, etc.)"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -407,3 +470,70 @@ agent_communication:
       - "police" appears with count>=2
       - "zzqqxx-nomatch" appears in zero_results with avg_results=0
       - Days query parameter working correctly
+    -agent: "main"
+    -message: |
+      ROUND 5 — Test these NEW round-3 backend behaviors in /app/backend/server.py (HR Digital Services). 
+      Base URL = REACT_APP_BACKEND_URL + "/api". Admin auth cookie via POST /api/auth/login 
+      {"email":"admin@hrdigitalservices.in","password":"Admin@12345"}; admin routes use require_admin.
+
+      1) SEO edit converts a scraped API post -> manual (protects from shuffle):
+         - GET /api/admin/vacancies-seo (admin) and find an item with source != "manual". Capture its id and current seo_title.
+         - PUT /api/admin/vacancies/{id}/seo (admin, JSON) {"seo_title":"MYCUSTOM SEO TITLE","seo_description":"my desc"} → 200.
+         - GET /api/vacancies/{id} → source MUST now be "manual" and seo_title == "MYCUSTOM SEO TITLE".
+         - POST /api/admin/vacancies/shuffle-seo (admin) → 200. Then GET /api/vacancies/{id} again → seo_title MUST still be "MYCUSTOM SEO TITLE" (shuffle must NOT touch it because it's manual now).
+
+      2) Full edit converts a scraped API post -> manual:
+         - From GET /api/admin/vacancies-seo find ANOTHER item with source != "manual". Capture id.
+         - PUT /api/admin/vacancies/{id} (admin, JSON) {"title":"Edited Full Title","organization":"My Org","category":"other","tags":["tagx"],"important_links":[{"label":"Official","url":"https://example.gov.in","type":"link"}]} → 200 (previously this endpoint returned 400 for non-manual; now it must succeed).
+         - GET /api/vacancies/{id} → source=="manual", title=="Edited Full Title", tags==["tagx"], important_links contains the Official link.
+
+      3) Promo cleanup endpoint:
+         - POST /api/admin/vacancies/clean-promo (admin) → 200 with {ok:true, cleaned:<int>}.
+         - Without admin auth → 401/403.
+
+      4) Channel link settings:
+         - PUT /api/admin/site-settings (admin, JSON) {"channel_whatsapp":"https://whatsapp.com/channel/abc","channel_telegram":"https://t.me/mychan"} → 200.
+         - GET /api/site-settings → returns channel_whatsapp and channel_telegram with those exact values, and also includes keys channel_arattai, channel_youtube, channel_instagram, channel_app (may be empty strings).
+         - Without admin auth, PUT → 401/403.
+
+      Report pass/fail per item with status codes and key response fields. Do not modify code.
+    -agent: "testing"
+    -message: |
+      ✅ ROUND 5 COMPLETE: ALL 19 TESTS PASSED (19/19)
+      
+      Round-3 backend behaviors testing completed successfully:
+      
+      1. SEO EDIT CONVERTS TO MANUAL (6/6 tests passed):
+         - Found scraped vacancy: ID=6a9ac89f673c1f9a5e67fe06, source=freejobalert ✅
+         - PUT /api/admin/vacancies/{id}/seo with seo_title='MYCUSTOM SEO TITLE' → 200 ✅
+         - GET /api/vacancies/{id} → source changed to 'manual' (was freejobalert) ✅
+         - seo_title persisted as 'MYCUSTOM SEO TITLE' ✅
+         - POST /api/admin/vacancies/shuffle-seo → 200, shuffled 972 vacancies ✅
+         - GET /api/vacancies/{id} after shuffle → seo_title STILL 'MYCUSTOM SEO TITLE' (protected from shuffle) ✅
+      
+      2. FULL EDIT CONVERTS TO MANUAL (5/5 tests passed):
+         - Found second scraped vacancy: ID=6a9ac89f673c1f9a5e67fe04, source=freejobalert ✅
+         - PUT /api/admin/vacancies/{id} with full edit → 200 ✅
+         - GET /api/vacancies/{id} → source changed to 'manual' (was freejobalert) ✅
+         - title='Edited Full Title' ✅
+         - tags=['tagx'] ✅
+         - important_links contains Official link {label:'Official', url:'https://example.gov.in', type:'link'} ✅
+      
+      3. PROMO CLEANUP ENDPOINT (2/2 tests passed):
+         - POST /api/admin/vacancies/clean-promo without auth → 401 ✅
+         - POST /api/admin/vacancies/clean-promo with admin auth → 200 {ok:true, cleaned:2} ✅
+      
+      4. CHANNEL LINK SETTINGS (6/6 tests passed):
+         - PUT /api/admin/site-settings without auth → 401 ✅
+         - PUT /api/admin/site-settings with admin auth → 200 ✅
+         - GET /api/site-settings → 200 with all 6 required keys ✅
+           * channel_whatsapp='https://whatsapp.com/channel/abc' ✅
+           * channel_telegram='https://t.me/mychan' ✅
+           * Also includes: channel_arattai, channel_youtube, channel_instagram, channel_app ✅
+      
+      All requirements met:
+      - SEO edit protection working (manual posts not touched by shuffle)
+      - Full edit conversion working (scraped posts become manual)
+      - Promo cleanup endpoint working with proper auth
+      - Channel settings CRUD working with all required fields
+      - All endpoints have proper authentication enforcement (401/403 without admin auth)
