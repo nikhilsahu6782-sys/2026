@@ -153,6 +153,7 @@ const Vacancies = () => {
   const [savedOnly, setSavedOnly] = useState(false);
   const [bookmarks, setBookmarks] = useState(() => readBookmarks());
   const [q, setQ] = useState("");
+  const [dq, setDq] = useState(""); // debounced query actually sent to the server
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
@@ -185,7 +186,7 @@ const Vacancies = () => {
       if (qualification !== "all") params.set("qualification", qualification);
       if (mode !== "all") params.set("mode", mode);
       if (state !== "all") params.set("state", state);
-      if (q) params.set("q", q);
+      if (dq) params.set("q", dq);
       params.set("page", String(page));
       params.set("per_page", "20");
       const [r1, r2] = await Promise.all([
@@ -202,8 +203,16 @@ const Vacancies = () => {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [category, qualification, mode, state, page]);
-  useEffect(() => { setPage(1); }, [category, qualification, mode, state]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [category, qualification, mode, state, page, dq]);
+  useEffect(() => { setPage(1); }, [category, qualification, mode, state, dq]);
+
+  // Debounce the search box → server-side search across the FULL dataset
+  // (not just the 20 already-loaded rows). Fixes "gds / india post / gramin dak"
+  // not appearing when the match lives on a later page.
+  useEffect(() => {
+    const t = setTimeout(() => setDq(q.trim()), 400);
+    return () => clearTimeout(t);
+  }, [q]);
 
   // Latest 9 vacancies for the "New Updates" strip (always unfiltered)
   useEffect(() => {
@@ -233,19 +242,14 @@ const Vacancies = () => {
       seen.add(key);
       list.push(it);
     }
-    // mode is filtered server-side, only apply text search + saved-only client-side
+    // mode is filtered server-side; text search now also runs server-side (dq),
+    // so we only apply saved-only + dedupe on the client.
     let base = list;
     if (savedOnly) {
       base = base.filter(i => bookmarks.includes(i.id));
     }
-    if (!q) return base;
-    const s = q.toLowerCase();
-    return base.filter(i =>
-      i.title?.toLowerCase().includes(s) ||
-      i.organization?.toLowerCase().includes(s) ||
-      i.post_name?.toLowerCase().includes(s)
-    );
-  }, [items, q, savedOnly, bookmarks]);
+    return base;
+  }, [items, savedOnly, bookmarks]);
 
   // Mode counts come from DB stats (full dataset) — matches category counter above.
   const modeCounts = useMemo(() => {

@@ -632,6 +632,32 @@ def _annotate_and_filter_vacancy_expired(items: list, include_expired: bool = Fa
     return out
 
 
+# Common Indian govt-job acronyms → full phrases so a search like "gds" also
+# matches "Gramin Dak Sevak". Applied per-token during vacancy search.
+SEARCH_SYNONYMS = {
+    "gds": ["gramin dak sevak", "gramin dak"],
+    "postman": ["post office"],
+    "ssc": ["staff selection"],
+    "upsc": ["union public service"],
+    "ibps": ["institute of banking"],
+    "rrb": ["railway recruitment"],
+    "po": ["probationary officer"],
+    "tgt": ["trained graduate teacher"],
+    "pgt": ["post graduate teacher"],
+    "anm": ["auxiliary nurse"],
+    "gnm": ["general nursing"],
+    "je": ["junior engineer"],
+    "ldc": ["lower division clerk"],
+    "udc": ["upper division clerk"],
+    "mts": ["multi tasking staff", "multi-tasking"],
+    "asi": ["assistant sub inspector"],
+    "si": ["sub inspector"],
+    "cgl": ["combined graduate level"],
+    "chsl": ["combined higher secondary"],
+}
+
+
+
 @api.get("/vacancies")
 async def list_vacancies(
     category: Optional[str] = None,
@@ -692,13 +718,18 @@ async def list_vacancies(
         # Advanced keyword search — every word in the query must match somewhere:
         # title, post name, organization, qualification, category, state or raw text.
         # e.g. "clerk haryana" finds posts containing BOTH words (in any field).
-        tokens = [re.escape(t) for t in re.split(r"\s+", q.strip()) if t]
+        raw_tokens = [t for t in re.split(r"\s+", q.strip()) if t]
         search_fields = ["title", "post_name", "organization", "qualification", "row_text", "category", "state"]
         and_clauses = query.setdefault("$and", [])
         if "$or" in query:  # preserve existing $or (e.g. haryana cross-cutting view)
             and_clauses.append({"$or": query.pop("$or")})
-        for tok in tokens:
-            and_clauses.append({"$or": [{f: {"$regex": tok, "$options": "i"}} for f in search_fields]})
+        for raw in raw_tokens:
+            tok = re.escape(raw)
+            ors = [{f: {"$regex": tok, "$options": "i"}} for f in search_fields]
+            for syn in SEARCH_SYNONYMS.get(raw.lower(), []):
+                syn_rx = re.escape(syn)
+                ors += [{f: {"$regex": syn_rx, "$options": "i"}} for f in search_fields]
+            and_clauses.append({"$or": ors})
     # When user explicitly wants expired items OR wants to include them,
     # we need to scan more docs because they tend to be older (sort=fetched_at desc)
     effective_limit = 1000 if (only_expired or include_expired) else min(limit, 1000)
@@ -816,6 +847,8 @@ async def get_vacancy_detail(vac_id: str):
         else:
             # Negative-cache: mark attempted so we do not re-scrape for 1 hour
             await db.vacancies.update_one({"_id": oid}, {"$set": {"detail_attempted_at": now_utc}})
+    await db.vacancies.update_one({"_id": oid}, {"$inc": {"views": 1}})
+    v["views"] = (v.get("views") or 0) + 1
     return doc_public(v)
 
 
@@ -1475,6 +1508,7 @@ class VacancySeoIn(BaseModel):
     seo_title: Optional[str] = Field(None, max_length=200)
     focus_keyword: Optional[str] = Field(None, max_length=120)
     seo_description: Optional[str] = Field(None, max_length=400)
+    custom_head: Optional[str] = Field(None, max_length=5000)
 
 
 @api.post("/admin/vacancies/shuffle-seo")
@@ -1505,6 +1539,7 @@ async def admin_vacancies_seo_list(page: int = 1, per_page: int = 20, q: str = "
     rows = await db.vacancies.find(query, {
         "title": 1, "organization": 1, "post_name": 1, "source": 1, "category": 1,
         "last_date_text": 1, "seo_title": 1, "focus_keyword": 1, "seo_description": 1,
+        "custom_head": 1, "views": 1,
         "whatsapp_summary": 1, "fetched_at": 1,
     }).sort("fetched_at", -1).skip((page - 1) * per_page).limit(per_page).to_list(per_page)
     return {
@@ -1527,6 +1562,7 @@ async def admin_update_vacancy_seo(vac_id: str, payload: VacancySeoIn, _=Depends
         "seo_title": (payload.seo_title or "").strip()[:200] or None,
         "focus_keyword": (payload.focus_keyword or "").strip()[:120] or None,
         "seo_description": (payload.seo_description or "").strip()[:400] or None,
+        "custom_head": (payload.custom_head or "").strip()[:5000] or None,
     }})
     updated = await db.vacancies.find_one({"_id": oid})
     return doc_public(updated)
@@ -1624,6 +1660,8 @@ async def get_blog(slug: str):
     b = await db.blogs.find_one({"slug": slug})
     if not b:
         raise HTTPException(status_code=404, detail="Blog not found")
+    await db.blogs.update_one({"_id": b["_id"]}, {"$inc": {"views": 1}})
+    b["views"] = (b.get("views") or 0) + 1
     return doc_public(b)
 
 
@@ -1644,6 +1682,7 @@ async def admin_create_blog(
     focus_keyword: str = Form(""),
     seo_title: str = Form(""),
     seo_description: str = Form(""),
+    custom_head: str = Form(""),
     image: Optional[UploadFile] = File(None),
     _=Depends(require_admin),
 ):
@@ -1663,6 +1702,8 @@ async def admin_create_blog(
         "focus_keyword": focus_keyword.strip()[:120],
         "seo_title": seo_title.strip()[:200],
         "seo_description": seo_description.strip()[:400],
+        "custom_head": custom_head.strip()[:5000],
+        "views": 0,
         "author": "HR Digital Services",
         "created_at": now,
         "updated_at": now,
@@ -1802,6 +1843,7 @@ async def admin_update_blog(
     focus_keyword: str = Form(""),
     seo_title: str = Form(""),
     seo_description: str = Form(""),
+    custom_head: str = Form(""),
     image: Optional[UploadFile] = File(None),
     _=Depends(require_admin),
 ):
@@ -1822,6 +1864,7 @@ async def admin_update_blog(
         "focus_keyword": focus_keyword.strip()[:120],
         "seo_title": seo_title.strip()[:200],
         "seo_description": seo_description.strip()[:400],
+        "custom_head": custom_head.strip()[:5000],
         "updated_at": datetime.now(timezone.utc),
     }
     if slug.strip():
@@ -1843,6 +1886,97 @@ async def admin_delete_blog(blog_id: str, _=Depends(require_admin)):
     if res.deleted_count == 0:
         raise HTTPException(404, "Blog not found")
     return {"ok": True}
+
+
+# ─────────── Reviews (public post + read, admin moderate) ───────────
+class ReviewIn(BaseModel):
+    target_type: str = Field(..., max_length=20)   # 'blog' | 'vacancy'
+    target_id: str = Field(..., max_length=120)     # blog slug or vacancy id
+    name: str = Field(..., min_length=1, max_length=80)
+    rating: int = Field(..., ge=1, le=5)
+    comment: str = Field("", max_length=1500)
+
+
+async def _review_target_title(target_type: str, target_id: str) -> str:
+    try:
+        if target_type == "blog":
+            b = await db.blogs.find_one({"slug": target_id}, {"title": 1})
+            return (b or {}).get("title") or target_id
+        if target_type == "vacancy":
+            v = await db.vacancies.find_one({"_id": ObjectId(target_id)}, {"title": 1})
+            return (v or {}).get("title") or target_id
+    except Exception:
+        pass
+    return target_id
+
+
+@api.get("/reviews")
+async def list_reviews(target_type: str, target_id: str):
+    rows = await db.reviews.find({
+        "target_type": target_type,
+        "target_id": target_id,
+        "hidden": {"$ne": True},
+    }).sort("created_at", -1).to_list(300)
+    items = [doc_public(r) for r in rows]
+    count = len(items)
+    avg = round(sum(int(r.get("rating") or 0) for r in items) / count, 1) if count else 0
+    return {"items": items, "count": count, "average": avg}
+
+
+@api.post("/reviews")
+async def create_review(payload: ReviewIn):
+    if payload.target_type not in ("blog", "vacancy"):
+        raise HTTPException(400, "Invalid target_type")
+    doc = {
+        "target_type": payload.target_type,
+        "target_id": payload.target_id.strip()[:120],
+        "name": payload.name.strip()[:80],
+        "rating": int(payload.rating),
+        "comment": payload.comment.strip()[:1500],
+        "hidden": False,
+        "created_at": datetime.now(timezone.utc),
+    }
+    res = await db.reviews.insert_one(doc)
+    doc["_id"] = res.inserted_id
+    return doc_public(doc)
+
+
+@api.get("/admin/reviews")
+async def admin_list_reviews(_=Depends(require_admin)):
+    rows = await db.reviews.find({}).sort("created_at", -1).to_list(1000)
+    out = []
+    for r in rows:
+        item = doc_public(r)
+        item["target_title"] = await _review_target_title(r.get("target_type"), r.get("target_id"))
+        out.append(item)
+    return out
+
+
+@api.put("/admin/reviews/{review_id}/toggle")
+async def admin_toggle_review(review_id: str, _=Depends(require_admin)):
+    try:
+        oid = ObjectId(review_id)
+    except Exception:
+        raise HTTPException(400, "Invalid id")
+    r = await db.reviews.find_one({"_id": oid})
+    if not r:
+        raise HTTPException(404, "Review not found")
+    new_hidden = not bool(r.get("hidden"))
+    await db.reviews.update_one({"_id": oid}, {"$set": {"hidden": new_hidden}})
+    return {"ok": True, "hidden": new_hidden}
+
+
+@api.delete("/admin/reviews/{review_id}")
+async def admin_delete_review(review_id: str, _=Depends(require_admin)):
+    try:
+        oid = ObjectId(review_id)
+    except Exception:
+        raise HTTPException(400, "Invalid id")
+    res = await db.reviews.delete_one({"_id": oid})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Review not found")
+    return {"ok": True}
+
 
 
 # ─────────── Webpushr push subscribers ───────────

@@ -101,3 +101,159 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: |
+  Add to the HR Digital Services app (blogs + vacancies):
+  1) Per-post Verification code / custom <head> meta tag option (blogs + vacancies).
+  2) Public reviews (star rating + comment) on posts; reviews show immediately; admin can hide/delete.
+  3) View counter per post (blogs + vacancies) shown on the public page and in admin.
+  4) Fix the Vacancies search bar — searching "gds", "india post" or "gramin dak" did not surface the
+     "India Post — Gramin Dak Sevak – 23757 Posts" vacancy. Root cause: q was never sent to the server
+     (client-side filtered only the 20 loaded rows). Added debounced server-side search + acronym synonyms.
+
+backend:
+  - task: "Vacancy search server-side + acronym synonyms (gds→gramin dak sevak)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "GET /api/vacancies?q=... — added SEARCH_SYNONYMS expansion so 'gds' matches 'Gramin Dak Sevak'. Verify q=gds, q=india post, q=gramin dak all return the India Post GDS vacancy."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ VERIFIED: All 3 search queries (gds, india post, gramin dak) successfully return the 'India Post — Gramin Dak Sevak – 23757 Posts' vacancy. Synonym expansion working correctly. Response includes proper pagination (items, total, page, pages)."
+  - task: "View counter increment on blog + vacancy detail GET"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "GET /api/blogs/{slug} and GET /api/vacancies/{id} now $inc views and return views. Verify views increments on repeated GETs."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ VERIFIED: Both blog and vacancy view counters increment correctly. Blog views: 4→5, Vacancy views: 8→9. Views field is returned in response and persists across requests."
+  - task: "Reviews CRUD (public post/list, admin list/toggle/delete)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "POST /api/reviews (public), GET /api/reviews?target_type=&target_id=, GET /api/admin/reviews, PUT /api/admin/reviews/{id}/toggle, DELETE /api/admin/reviews/{id}. Admin endpoints require admin auth. Verify average/count, hidden filtering, and admin moderation."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ VERIFIED: All review endpoints working correctly. POST creates reviews for both blog and vacancy. GET returns {items, count, average} with correct calculations. Invalid target_type correctly rejected with 400. Admin endpoints: GET returns reviews with target_title, toggle hides/unhides reviews (hidden reviews excluded from public GET), DELETE removes reviews. Auth correctly enforced (401/403 without credentials)."
+  - task: "Custom head / verification meta per post (blogs via form, vacancies via /seo)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Blog create/update accept custom_head form field; PUT /api/admin/vacancies/{id}/seo accepts custom_head. Verify persisted + returned in GET."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ VERIFIED: Custom head functionality working for both blogs and vacancies. Blog: PUT /api/admin/blogs/{id} with custom_head form field persists and returns in GET /api/blogs/{slug}. Vacancy: PUT /api/admin/vacancies/{id}/seo with custom_head JSON field persists and returns in GET /api/vacancies/{id}. Tested with Google site verification meta tag."
+
+frontend:
+  - task: "Vacancies search box triggers debounced server search"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/pages/Vacancies.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Needs user permission before automated frontend testing."
+  - task: "Reviews UI + views on BlogDetail/VacancyDetail; admin Reviews page; custom_head admin fields"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/components/Reviews.jsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Needs user permission before automated frontend testing."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Vacancy search server-side + acronym synonyms (gds→gramin dak sevak)"
+    - "View counter increment on blog + vacancy detail GET"
+    - "Reviews CRUD (public post/list, admin list/toggle/delete)"
+    - "Custom head / verification meta per post (blogs via form, vacancies via /seo)"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: |
+      Please test the new backend endpoints. Admin auth: login via POST /api/auth/login (or admin login) with
+      ADMIN_EMAIL=admin@hrdigitalservices.in / ADMIN_PASSWORD=Admin@12345 (cookie-based). Focus on:
+      1) Search: GET /api/vacancies?q=gds , q=india%20post , q=gramin%20dak — each must include the vacancy titled
+         "India Post — Gramin Dak Sevak – 23757 Posts".
+      2) Views: GET a blog slug / vacancy id twice; views should increment and be returned.
+      3) Reviews: POST /api/reviews for a blog and a vacancy, GET /api/reviews returns them with count+average;
+         admin GET/toggle(hide)/delete work and hidden ones are excluded from public GET.
+      4) custom_head: set via blog update + vacancy /seo, confirm persisted in GET responses.
+    -agent: "testing"
+    -message: |
+      ✅ ALL BACKEND TESTS PASSED (20/20)
+      
+      Comprehensive testing completed for all 4 backend tasks:
+      
+      1. VACANCY SEARCH (3/3 tests passed):
+         - GET /api/vacancies?q=gds ✅
+         - GET /api/vacancies?q=india%20post ✅
+         - GET /api/vacancies?q=gramin%20dak ✅
+         All queries correctly return "India Post — Gramin Dak Sevak – 23757 Posts" vacancy.
+         Synonym expansion (gds → gramin dak sevak) working perfectly.
+      
+      2. VIEW COUNTER (2/2 tests passed):
+         - Blog view counter: increments correctly (4→5) ✅
+         - Vacancy view counter: increments correctly (8→9) ✅
+         Views persist and are returned in GET responses.
+      
+      3. REVIEWS CRUD (10/10 tests passed):
+         - POST /api/reviews (blog) ✅
+         - POST /api/reviews (vacancy) ✅
+         - GET /api/reviews with count & average ✅
+         - Invalid target_type rejection (400) ✅
+         - GET /api/admin/reviews with target_title ✅
+         - Admin auth enforcement (401/403) ✅
+         - PUT /api/admin/reviews/{id}/toggle (hide) ✅
+         - Hidden review exclusion from public GET ✅
+         - PUT /api/admin/reviews/{id}/toggle (unhide) ✅
+         - DELETE /api/admin/reviews/{id} ✅
+      
+      4. CUSTOM HEAD (4/4 tests passed):
+         - Blog custom_head update via PUT /api/admin/blogs/{id} ✅
+         - Blog custom_head returned in GET /api/blogs/{slug} ✅
+         - Vacancy custom_head update via PUT /api/admin/vacancies/{id}/seo ✅
+         - Vacancy custom_head returned in GET /api/vacancies/{id} ✅
+      
+      All endpoints functioning correctly with proper validation, authentication, and data persistence.

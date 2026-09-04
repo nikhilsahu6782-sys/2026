@@ -6,12 +6,14 @@ import {
   FaArrowLeft, FaCalendarAlt, FaBuilding, FaGraduationCap, FaClock,
   FaFilePdf, FaExternalLinkAlt, FaRegClock, FaBriefcase, FaShareAlt, FaCheckCircle,
   FaUsers, FaRupeeSign, FaMoneyBillWave, FaListUl, FaMapMarkerAlt, FaUserCheck,
-  FaWhatsapp,
+  FaWhatsapp, FaEye,
 } from "react-icons/fa";
 import { toast } from "sonner";
 import ShareModal from "@/components/poster/ShareModal";
 import WhatsAppSummaryCard from "@/components/WhatsAppSummaryCard";
 import SEO from "@/components/SEO";
+import RawHead from "@/components/RawHead";
+import Reviews from "@/components/Reviews";
 
 const KIND_META = {
   apply:        { hi: "ऑनलाइन आवेदन",   en: "Apply Online",       icon: FaCheckCircle,     cls: "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/15", iconCls: "text-emerald-400" },
@@ -172,6 +174,7 @@ const VacancyDetail = () => {
         type="article"
         jsonLd={jobPostingJsonLd}
       />
+      {v.custom_head && <RawHead html={v.custom_head} />}
       {/* Breadcrumb */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <Link to="/" className="link-mint inline-flex items-center gap-2 text-sm" data-testid="back-to-vacancies">
@@ -451,11 +454,14 @@ const VacancyDetail = () => {
       ) : null}
 
       {/* Meta footer */}
-      <div className="text-xs text-slate-500 text-center">
+      <div className="text-xs text-slate-500 text-center flex items-center justify-center gap-4 flex-wrap">
+        <span data-testid="vacancy-views"><FaEye className="inline mr-1" /> {(v.views || 0).toLocaleString(lang === "hi" ? "hi-IN" : "en-IN")} {lang === "hi" ? "व्यूज़" : "views"}</span>
         {v.fetched_at && (
           <span><FaClock className="inline mr-1" /> {lang === "hi" ? "अंतिम अपडेट" : "Last updated"}: {new Date(v.fetched_at).toLocaleString()}</span>
         )}
       </div>
+
+      <Reviews targetType="vacancy" targetId={v.id || id} hi={lang === "hi"} />
 
       {/* Share poster modal */}
       {shareOpen && posterVacancy && (

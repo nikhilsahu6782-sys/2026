@@ -12,7 +12,7 @@ const inputCls =
   "w-full px-3 py-2 rounded border border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm text-slate-900 bg-white";
 const EMPTY = {
   title: "", excerpt: "", content: "", status: "published",
-  categories: [], tags: [], focus_keyword: "", seo_title: "", seo_description: "",
+  categories: [], tags: [], focus_keyword: "", seo_title: "", seo_description: "", custom_head: "",
 };
 
 const wordCount = (t) => (t.trim() ? t.trim().split(/\s+/).length : 0);
@@ -59,7 +59,7 @@ const AdminBlogs = () => {
     setForm({
       title: b.title, excerpt: b.excerpt || "", content: b.content || "", status: b.status || "published",
       categories: b.categories || [], tags: b.tags || [], focus_keyword: b.focus_keyword || "",
-      seo_title: b.seo_title || "", seo_description: b.seo_description || "",
+      seo_title: b.seo_title || "", seo_description: b.seo_description || "", custom_head: b.custom_head || "",
     });
     setImage(null); setImgPreview(b.image_url ? `${BACKEND}${b.image_url}` : ""); setSeoTab("general");
     setView("edit");
@@ -132,6 +132,7 @@ const AdminBlogs = () => {
       fd.append("focus_keyword", form.focus_keyword);
       fd.append("seo_title", form.seo_title);
       fd.append("seo_description", form.seo_description);
+      fd.append("custom_head", form.custom_head || "");
       if (image) fd.append("image", image);
       if (editing) {
         fd.append("slug", editing.slug || "");
@@ -181,7 +182,7 @@ const AdminBlogs = () => {
                     : <div className="w-11 h-11 rounded bg-slate-100 grid place-items-center shrink-0 text-slate-300"><FaImage /></div>}
                   <div className="min-w-0">
                     <p className="font-semibold text-emerald-800 truncate">{b.title}</p>
-                    <p className="text-xs text-slate-400 truncate">/{b.slug}</p>
+                    <p className="text-xs text-slate-400 truncate">/{b.slug} · {(b.views || 0).toLocaleString()} views</p>
                   </div>
                 </div>
                 <div className="text-xs text-slate-500 truncate">{(b.categories || []).join(", ") || "—"}</div>
@@ -310,6 +311,18 @@ const AdminBlogs = () => {
               <div className="p-4 text-sm text-slate-500 space-y-3">
                 <p className="flex items-center gap-2"><FaCheckCircle className="text-slate-300" /> Robots: <b className="text-slate-700">Index, Follow</b> (default)</p>
                 <p className="flex items-center gap-2"><FaCheckCircle className="text-slate-300" /> Canonical URL auto-generated from slug.</p>
+                <div>
+                  <label className="block text-[13px] font-semibold text-slate-700 mb-1">Verification code / Custom &lt;head&gt; meta tags</label>
+                  <textarea
+                    value={form.custom_head}
+                    onChange={(e) => setForm({ ...form, custom_head: e.target.value })}
+                    rows={4}
+                    placeholder={'<meta name="google-site-verification" content="xxxx" />'}
+                    className={`${inputCls} font-mono !text-xs`}
+                    data-testid="admin-blog-custom-head"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">Yeh raw meta/verification tags is post ke page ke &lt;head&gt; me inject honge (Google verification, custom SEO meta, etc.).</p>
+                </div>
               </div>
             )}
             {seoTab === "schema" && (

@@ -13,7 +13,7 @@ const AdminJobSEO = () => {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ seo_title: "", focus_keyword: "", seo_description: "" });
+  const [form, setForm] = useState({ seo_title: "", focus_keyword: "", seo_description: "", custom_head: "" });
   const [saving, setSaving] = useState(false);
   const [shuffling, setShuffling] = useState(false);
 
@@ -36,7 +36,7 @@ const AdminJobSEO = () => {
 
   const openEdit = (v) => {
     setEditing(v);
-    setForm({ seo_title: v.seo_title || "", focus_keyword: v.focus_keyword || "", seo_description: v.seo_description || "" });
+    setForm({ seo_title: v.seo_title || "", focus_keyword: v.focus_keyword || "", seo_description: v.seo_description || "", custom_head: v.custom_head || "" });
   };
 
   const save = async () => {
@@ -135,7 +135,7 @@ const AdminJobSEO = () => {
                   <tr key={v.id} className="hover:bg-slate-50/60" data-testid={`admin-job-seo-row-${v.id}`}>
                     <td className="px-4 py-3">
                       <p className="font-semibold text-slate-900 line-clamp-1">{v.title}</p>
-                      <p className="text-xs text-slate-400 line-clamp-1">{v.organization || "—"} · Last: {v.last_date_text || "—"}</p>
+                      <p className="text-xs text-slate-400 line-clamp-1">{v.organization || "—"} · Last: {v.last_date_text || "—"} · {(v.views || 0).toLocaleString()} views</p>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className={`text-xs font-bold px-2 py-1 rounded-full ${v.source === "manual" ? "text-emerald-700 bg-emerald-50" : "text-amber-700 bg-amber-50"}`}>
@@ -207,6 +207,11 @@ const AdminJobSEO = () => {
               <label className="block">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Meta Description</span>
                 <textarea value={form.seo_description} onChange={(e) => setForm({ ...form, seo_description: e.target.value })} rows={3} className={inputCls} placeholder="120-160 chars ideal" data-testid="admin-job-seo-description-input" />
+              </label>
+              <label className="block">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Verification code / Custom &lt;head&gt; meta tags</span>
+                <textarea value={form.custom_head} onChange={(e) => setForm({ ...form, custom_head: e.target.value })} rows={3} className={`${inputCls} font-mono !text-xs`} placeholder={'<meta name="google-site-verification" content="xxxx" />'} data-testid="admin-job-seo-custom-head-input" />
+                <span className="block text-[11px] text-slate-400 mt-1">Is post ke page ke &lt;head&gt; me inject hoga.</span>
               </label>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                 {seo.checks.map((c, i) => (

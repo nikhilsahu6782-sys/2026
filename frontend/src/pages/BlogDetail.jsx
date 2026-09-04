@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import api from "@/lib/api";
 import SEO from "@/components/SEO";
+import RawHead from "@/components/RawHead";
+import Reviews from "@/components/Reviews";
 import { useI18n } from "@/context/I18nContext";
-import { FaWhatsapp, FaCalendarAlt, FaUser, FaNewspaper } from "react-icons/fa";
+import { FaWhatsapp, FaCalendarAlt, FaUser, FaNewspaper, FaEye } from "react-icons/fa";
 import { WHATSAPP_CHANNEL_URL } from "@/lib/whatsapp";
 
 import { BACKEND_URL as BACKEND } from "@/lib/api";
@@ -44,6 +46,7 @@ const BlogDetail = () => {
   return (
     <div className="max-w-3xl mx-auto px-4 py-10" data-testid="blog-detail-page">
       <SEO title={blog.title} description={blog.excerpt} path={`/blogs/${blog.slug}`} type="article" />
+      {blog.custom_head && <RawHead html={blog.custom_head} />}
       <Link to="/blogs" className="link-mint inline-flex items-center gap-2 text-sm mb-4" data-testid="blog-back-link">
         ← {hi ? "सभी ब्लॉग" : "All Blogs"}
       </Link>
@@ -58,6 +61,9 @@ const BlogDetail = () => {
         <span className="flex items-center gap-1.5">
           <FaCalendarAlt />
           {new Date(blog.created_at).toLocaleDateString(hi ? "hi-IN" : "en-IN", { day: "numeric", month: "long", year: "numeric" })}
+        </span>
+        <span className="flex items-center gap-1.5" data-testid="blog-views">
+          <FaEye /> {(blog.views || 0).toLocaleString(hi ? "hi-IN" : "en-IN")} {hi ? "व्यूज़" : "views"}
         </span>
       </div>
 
@@ -80,6 +86,8 @@ const BlogDetail = () => {
           <FaWhatsapp className="text-lg" /> {hi ? "Join WhatsApp Channel" : "Join WhatsApp Channel"}
         </a>
       </div>
+
+      <Reviews targetType="blog" targetId={blog.slug} hi={hi} />
     </div>
   );
 };

@@ -39,6 +39,7 @@ import AdminBlogs from "@/pages/admin/AdminBlogs";
 import AdminResumes from "@/pages/admin/AdminResumes";
 import AdminIntegrations from "@/pages/admin/AdminIntegrations";
 import AdminSlides from "@/pages/admin/AdminSlides";
+import AdminReviews from "@/pages/admin/AdminReviews";
 import SeoHead from "@/components/SeoHead";
 
 const ScrollToTop = () => {
@@ -87,6 +88,7 @@ function AppRouter() {
         <Route path="resumes" element={<AdminResumes />} />
         <Route path="integrations" element={<AdminIntegrations />} />
         <Route path="slides" element={<AdminSlides />} />
+        <Route path="reviews" element={<AdminReviews />} />
       </Route>
 
       <Route path="*" element={
