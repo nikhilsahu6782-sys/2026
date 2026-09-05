@@ -1861,13 +1861,16 @@ async def get_site_settings():
         "channel_youtube": doc.get("channel_youtube", ""),
         "channel_instagram": doc.get("channel_instagram", ""),
         "channel_app": doc.get("channel_app", ""),
+        "default_theme": doc.get("default_theme", "light"),
+        "default_primary": doc.get("default_primary", ""),
     }
 
 
 @api.put("/admin/site-settings")
 async def update_site_settings(payload: dict = Body(...), _=Depends(require_admin)):
     fields = ["ga4_id", "gsc_verification", "channel_whatsapp", "channel_telegram",
-              "channel_arattai", "channel_youtube", "channel_instagram", "channel_app"]
+              "channel_arattai", "channel_youtube", "channel_instagram", "channel_app",
+              "default_theme", "default_primary"]
     update = {}
     for f in fields:
         if f in payload:

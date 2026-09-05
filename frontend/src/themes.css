@@ -1,0 +1,88 @@
+/* ---------------------------------------------------------------------------
+   Multi-theme variable overrides for the PUBLIC site.
+   The whole site is driven by the CSS vars defined in index.css (:root = dark,
+   body.light-theme = light). Each named theme below just re-maps those same
+   vars, so switching a theme instantly re-skins the entire site.
+
+   Loaded AFTER index.css so, at equal specificity, these win.
+   "default" applies NO class → site keeps its current look untouched.
+--------------------------------------------------------------------------- */
+
+/* ---- Light-based presets (added together with .light-theme) ---- */
+body.theme-luxury {
+  --bg: #f6efe7; --bg-2: #fffaf4;
+  --panel: rgba(255, 255, 255, 0.8); --panel-solid: #fffaf4;
+  --border: rgba(90, 40, 30, 0.12); --border-strong: rgba(90, 40, 30, 0.2);
+  --text: #3a2b25; --text-dim: #6b5147; --muted: #8a7266;
+  --emerald: #9f2d2d; --emerald-glow: #c0392b; --emerald-deep: #7e2222; --emerald-soft: rgba(159, 45, 45, 0.1);
+  --amber: #b8860b;
+  background: #f6efe7 !important; color: #3a2b25;
+}
+body.theme-retro {
+  --bg: #ece3d1; --bg-2: #f8f3e7;
+  --panel: rgba(248, 243, 231, 0.85); --panel-solid: #f8f3e7;
+  --border: rgba(60, 55, 40, 0.14); --border-strong: rgba(60, 55, 40, 0.22);
+  --text: #3b3a33; --text-dim: #5f5c50; --muted: #7c766a;
+  --emerald: #4b6070; --emerald-glow: #5a7183; --emerald-deep: #3a4b58; --emerald-soft: rgba(75, 96, 112, 0.12);
+  --amber: #a9772e;
+  background: #ece3d1 !important; color: #3b3a33;
+}
+body.theme-arctic {
+  --bg: #eef7f6; --bg-2: #ffffff;
+  --panel: rgba(255, 255, 255, 0.82); --panel-solid: #ffffff;
+  --border: rgba(15, 80, 72, 0.12); --border-strong: rgba(15, 80, 72, 0.2);
+  --text: #0f2a28; --text-dim: #3c5c58; --muted: #5b7c78;
+  --emerald: #0f766e; --emerald-glow: #14b8a6; --emerald-deep: #0b544e; --emerald-soft: rgba(15, 118, 110, 0.1);
+  --amber: #0891b2;
+  background: #eef7f6 !important; color: #0f2a28;
+}
+body.theme-nature {
+  --bg: #eff6e9; --bg-2: #ffffff;
+  --panel: rgba(255, 255, 255, 0.82); --panel-solid: #ffffff;
+  --border: rgba(40, 80, 30, 0.12); --border-strong: rgba(40, 80, 30, 0.2);
+  --text: #22331d; --text-dim: #48603c; --muted: #5f7a54;
+  --emerald: #2f8a3b; --emerald-glow: #3fae4d; --emerald-deep: #246e2e; --emerald-soft: rgba(47, 138, 59, 0.1);
+  --amber: #b5850f;
+  background: #eff6e9 !important; color: #22331d;
+}
+
+/* ---- Dark-based presets (no .light-theme) ---- */
+body.theme-ember {
+  --bg: #171412; --bg-2: #221d18;
+  --panel: rgba(34, 29, 24, 0.6); --panel-solid: #221d18;
+  --border: rgba(255, 255, 255, 0.08); --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #f4e9df; --text-dim: #c9b6a6; --muted: #b59f8d;
+  --emerald: #e8935a; --emerald-glow: #f2a86f; --emerald-deep: #c9743f; --emerald-soft: rgba(232, 147, 90, 0.14);
+  --amber: #f2a86f;
+  background: #171412 !important; color: #f4e9df;
+}
+body.theme-dracula {
+  --bg: #191527; --bg-2: #221d38;
+  --panel: rgba(34, 29, 56, 0.6); --panel-solid: #221d38;
+  --border: rgba(255, 255, 255, 0.08); --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #ece7fb; --text-dim: #bcb2df; --muted: #a99fca;
+  --emerald: #a855f7; --emerald-glow: #c084fc; --emerald-deep: #8b3ff0; --emerald-soft: rgba(168, 85, 247, 0.16);
+  --amber: #f0a5f0;
+  background: #191527 !important; color: #ece7fb;
+}
+body.theme-midnight {
+  --bg: #0d1526; --bg-2: #152039;
+  --panel: rgba(21, 32, 57, 0.6); --panel-solid: #152039;
+  --border: rgba(255, 255, 255, 0.08); --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #e5edff; --text-dim: #a9bce0; --muted: #8ea3c9;
+  --emerald: #7aa2f0; --emerald-glow: #93b4f5; --emerald-deep: #5a84e0; --emerald-soft: rgba(122, 162, 240, 0.16);
+  --amber: #93b4f5;
+  background: #0d1526 !important; color: #e5edff;
+}
+
+/* ---------- Theme switcher dropdown (uses the same vars) ---------- */
+.theme-switcher-panel {
+  background: var(--panel-solid);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.4);
+}
+.theme-switcher-panel .react-colorful { width: 100%; height: 150px; }
+.theme-switcher-panel .react-colorful__hue { height: 16px; border-radius: 10px; margin-top: 8px; }
+.theme-switcher-panel .react-colorful__saturation { border-radius: 10px; }
+.theme-switcher-panel .react-colorful__pointer { width: 18px; height: 18px; }

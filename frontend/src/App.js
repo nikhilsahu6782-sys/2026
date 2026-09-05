@@ -43,6 +43,7 @@ import AdminSlides from "@/pages/admin/AdminSlides";
 import AdminReviews from "@/pages/admin/AdminReviews";
 import AdminSearchAnalytics from "@/pages/admin/AdminSearchAnalytics";
 import SeoHead from "@/components/SeoHead";
+import { ThemeProvider } from "@/context/ThemeContext";
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -141,7 +142,9 @@ function App() {
     <HelmetProvider>
       <I18nProvider>
         <AuthProvider>
-          <AppInner />
+          <ThemeProvider>
+            <AppInner />
+          </ThemeProvider>
         </AuthProvider>
       </I18nProvider>
     </HelmetProvider>

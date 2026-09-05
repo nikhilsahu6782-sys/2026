@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useI18n } from "@/context/I18nContext";
+import { useTheme } from "@/context/ThemeContext";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 import { S } from "@/lib/strings";
 import Logo from "@/components/Logo";
 import {
@@ -13,16 +15,11 @@ import { WHATSAPP_CHANNEL_URL } from "@/lib/whatsapp";
 
 const Header = () => {
   const { lang, toggle, t } = useI18n();
+  const { toggleLightDark, isLight } = useTheme();
   const [open, setOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
 
   const [fontSize, setFontSize] = useState(localStorage.getItem("fontSize") || "normal");
-  // Light mode is DEFAULT — dark applies only when user explicitly toggles.
-  // A missing localStorage key ('lightTheme' == null) means first visit → default to light.
-  const [light, setLight] = useState(() => {
-    const saved = localStorage.getItem("lightTheme");
-    return saved === null ? true : saved === "1";
-  });
 
   useEffect(() => {
     document.body.classList.remove("font-large", "font-small");
@@ -30,11 +27,6 @@ const Header = () => {
     if (fontSize === "small") document.body.classList.add("font-small");
     localStorage.setItem("fontSize", fontSize);
   }, [fontSize]);
-
-  useEffect(() => {
-    document.body.classList.toggle("light-theme", light);
-    localStorage.setItem("lightTheme", light ? "1" : "0");
-  }, [light]);
 
   const primaryLinks = [
     { to: "/", label: t(S.nav.vacancies), icon: FaBriefcase },
@@ -88,9 +80,10 @@ const Header = () => {
             <button className="a11y-btn" onClick={toggle} data-testid="lang-toggle-btn" title="Language" aria-label="Language">
               <FaLanguage className="mr-1" /> {lang === "hi" ? "EN" : "हिं"}
             </button>
-            <button className="a11y-btn" onClick={() => setLight(v => !v)} data-testid="theme-toggle-btn" title="Theme" aria-label="Theme">
+            <button className="a11y-btn" onClick={toggleLightDark} data-testid="theme-toggle-btn" title="Light / Dark" aria-label="Light or Dark">
               <FaAdjust />
             </button>
+            <ThemeSwitcher />
 
             <button className="lg:hidden a11y-btn" onClick={() => setOpen(v => !v)} data-testid="mobile-menu-toggle" aria-label="Menu">
               {open ? <FaTimes /> : <FaBars />}

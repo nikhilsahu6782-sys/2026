@@ -40,8 +40,8 @@ html, body {
 }
 body {
   background:
-    radial-gradient(1200px 700px at 80% -10%, rgba(5, 150, 105, 0.08), transparent 60%),
-    radial-gradient(900px 600px at -10% 30%, rgba(251, 191, 36, 0.05), transparent 60%),
+    radial-gradient(1200px 700px at 80% -10%, var(--emerald-soft), transparent 60%),
+    radial-gradient(900px 600px at -10% 30%, var(--glow-2, rgba(251, 191, 36, 0.05)), transparent 60%),
     var(--bg);
   background-attachment: fixed;
 }
@@ -939,42 +939,42 @@ body.font-small { font-size: 13px; }
 body.light-theme .proc-overlay { background: rgba(15,22,19,0.35); }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .proc-card {
-  background: linear-gradient(160deg, #0f2921 0%, #0a1f19 100%);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--panel-solid);
+  border: 1px solid var(--border);
   border-radius: 20px;
   padding: 2.2rem 2.4rem;
   min-width: 260px;
   text-align: center;
-  box-shadow: 0 24px 60px -12px rgba(0,0,0,0.6);
+  box-shadow: 0 24px 60px -12px rgba(0,0,0,0.35);
 }
 .proc-icon-wrap {
   width: 56px; height: 56px; margin: 0 auto 1rem;
   border-radius: 50%;
-  background: rgba(5,150,105,0.15);
-  border: 1px solid rgba(5,150,105,0.4);
+  background: var(--emerald-soft);
+  border: 1px solid var(--emerald);
   display: flex; align-items: center; justify-content: center;
-  color: #10b981; font-size: 1.4rem;
+  color: var(--emerald-glow); font-size: 1.4rem;
   animation: spinIcon 2s linear infinite;
 }
 @keyframes spinIcon { to { transform: rotate(360deg); } }
 .proc-label {
-  color: #10b981; font-size: 11px; letter-spacing: 0.3em;
+  color: var(--emerald-glow); font-size: 11px; letter-spacing: 0.3em;
   font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;
 }
-.proc-title { color: #fff; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.2rem; }
-.proc-sub { color: #94a3b8; font-size: 0.85rem; margin-bottom: 1.1rem; }
+.proc-title { color: var(--text); font-size: 1.15rem; font-weight: 700; margin-bottom: 0.2rem; }
+.proc-sub { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 1.1rem; }
 .proc-bar {
-  height: 4px; background: rgba(255,255,255,0.06); border-radius: 4px;
+  height: 4px; background: var(--border); border-radius: 4px;
   overflow: hidden; position: relative; margin-bottom: 0.4rem;
 }
 .proc-bar::before {
   content: ""; position: absolute; inset: 0;
   width: 40%;
-  background: linear-gradient(90deg, transparent, #fbbf24, #10b981, transparent);
+  background: linear-gradient(90deg, transparent, var(--amber), var(--emerald-glow), transparent);
   animation: procSlide 1.6s linear infinite;
 }
 @keyframes procSlide { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
-.proc-percent { color: #10b981; font-weight: 700; font-size: 0.85rem; }
+.proc-percent { color: var(--emerald-glow); font-weight: 700; font-size: 0.85rem; }
 
 /* Toaster theme override */
 [data-sonner-toaster] { --normal-bg: #131b18; --normal-text: #e6ece9; --normal-border: rgba(255,255,255,0.12); }

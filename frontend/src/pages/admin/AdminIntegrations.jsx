@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { FaSearch, FaChartLine, FaExternalLinkAlt, FaSave, FaSitemap, FaRobot, FaGoogle, FaWhatsapp, FaTelegram, FaYoutube, FaInstagram, FaMobileAlt, FaComments } from "react-icons/fa";
+import { FaSearch, FaChartLine, FaExternalLinkAlt, FaSave, FaSitemap, FaRobot, FaGoogle, FaWhatsapp, FaTelegram, FaYoutube, FaInstagram, FaMobileAlt, FaComments, FaPalette } from "react-icons/fa";
 import { adminApi } from "./adminAuth";
 import { BACKEND_URL } from "@/lib/api";
 
@@ -12,6 +12,7 @@ const AdminIntegrations = () => {
     ga4_id: "", gsc_verification: "",
     channel_whatsapp: "", channel_telegram: "", channel_arattai: "",
     channel_youtube: "", channel_instagram: "", channel_app: "",
+    default_theme: "light", default_primary: "",
   });
   const [busy, setBusy] = useState(false);
 
@@ -66,6 +67,32 @@ const AdminIntegrations = () => {
             <p className="text-xs text-slate-400 mt-1">Analytics → Admin → Data Streams → Web → Measurement ID (G-…). Save ke baad visitor tracking auto shuru ho jaayega.</p>
           </div>
           <LinkBtn href="https://analytics.google.com/" icon={FaChartLine} testid="ga-dashboard-link">Open Google Analytics</LinkBtn>
+        </div>
+      </div>
+
+      {/* Site Default Theme */}
+      <div className="bg-white rounded border border-slate-200 shadow-sm mb-5" data-testid="default-theme-card">
+        <div className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-800 flex items-center gap-2"><FaPalette className="text-emerald-600" /> Site Default Theme</div>
+        <div className="p-4 space-y-3">
+          <p className="text-xs text-slate-500">Naye visitors ko yeh theme default milegi (jab tak woh khud koi theme na chunein). Save karte hi live ho jayegi.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[13px] font-semibold text-slate-700 mb-1">Default Theme</label>
+              <select value={form.default_theme || "light"} onChange={(e) => setForm({ ...form, default_theme: e.target.value })} className={inputCls} data-testid="default-theme-select">
+                {["light", "dark", "system", "luxury", "retro", "arctic", "nature", "ember", "dracula", "midnight"].map((k) => (
+                  <option key={k} value={k}>{k.charAt(0).toUpperCase() + k.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[13px] font-semibold text-slate-700 mb-1">Default Primary Color</label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={form.default_primary || "#059669"} onChange={(e) => setForm({ ...form, default_primary: e.target.value })} className="w-11 h-10 rounded border border-slate-300 p-0.5 bg-white cursor-pointer" data-testid="default-primary-color" />
+                <input value={form.default_primary || ""} onChange={(e) => setForm({ ...form, default_primary: e.target.value })} placeholder="#059669 (blank = theme default)" className={inputCls} data-testid="default-primary-hex" />
+                <button type="button" onClick={() => setForm({ ...form, default_primary: "" })} className="px-3 py-2 rounded-lg text-xs font-semibold border border-slate-300 text-slate-600 hover:bg-slate-100 shrink-0" data-testid="default-primary-clear">Clear</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
